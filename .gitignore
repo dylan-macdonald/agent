@@ -1,0 +1,114 @@
+# Environment and secrets
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+*.cover
+.cache
+nosetests.xml
+coverage.xml
+
+# Type checking
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pytype/
+
+# Database files (local development)
+data/postgres/
+data/redis/
+data/backups/
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+data/logs/
+*.log
+logs/
+
+# Obsidian vault (user's personal notes - should be in separate repo)
+obsidian_vault/.git/
+obsidian_vault/**/*
+!obsidian_vault/.gitkeep
+
+# Backup files
+*.bak
+*.backup
+*.sql.gz
+*.dump
+
+# Monitoring
+data/prometheus/
+data/grafana/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Jupyter Notebooks (if used for exploration)
+.ipynb_checkpoints/
+*.ipynb
+
+# Pre-commit
+.pre-commit-config.yaml
+
+# Docker
+.dockerignore
+
+# Alembic
+alembic.ini
+
+# Local scripts
+scripts/local_*.sh
+scripts/dev_*.sh
