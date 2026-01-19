@@ -16,13 +16,14 @@
 | **Phase 1** | Foundation & Core Infrastructure | [Go](#phase-1-foundation--core-infrastructure) |
 | **Phase 2** | Memory & Data Systems | [Go](#phase-2-memory--data-systems) |
 | **Phase 3** | Communication Layer | [Go](#phase-3-communication-layer) |
-| **Phase 4** | Scheduling & Proactive Features | [Go](#phase-4-scheduling--proactive-features) |
-| **Phase 5** | Health & Wellness Module | [Go](#phase-5-health--wellness-module) |
-| **Phase 6** | Remote Access & Control | [Go](#phase-6-remote-access--control) |
-| **Phase 7** | ADHD Support & Body Double | [Go](#phase-7-adhd-support--body-double) |
-| **Phase 8** | Web Dashboard & Mobile | [Go](#phase-8-web-dashboard--mobile) |
-| **Phase 9** | Integration & Polish | [Go](#phase-9-integration--polish) |
-| **Phase 10** | Security Audit & Deployment | [Go](#phase-10-security-audit--deployment) |
+| **Phase 4** | AI Tool Integration & Capabilities | [Go](#phase-4-ai-tool-integration--capabilities) |
+| **Phase 5** | Scheduling & Proactive Features | [Go](#phase-5-scheduling--proactive-features) |
+| **Phase 6** | Health & Wellness Module | [Go](#phase-6-health--wellness-module) |
+| **Phase 7** | Remote Access & Control | [Go](#phase-7-remote-access--control) |
+| **Phase 8** | ADHD Support & Body Double | [Go](#phase-8-adhd-support--body-double) |
+| **Phase 9** | Web Dashboard & Mobile | [Go](#phase-9-web-dashboard--mobile) |
+| **Phase 10** | Integration & Polish | [Go](#phase-10-integration--polish) |
+| **Phase 11** | Security Audit & Deployment | [Go](#phase-11-security-audit--deployment) |
 | **Change Log** | Agent modification history | [Go](#change-log) |
 
 ---
@@ -176,11 +177,108 @@ Build a comprehensive AI-powered personal assistant that acts as a proactive dig
 
 ---
 
-## Phase 4: Scheduling & Proactive Features
+## Phase 4: AI Tool Integration & Capabilities
+
+**Goal**: Equip the AI assistant with essential tools and vision capabilities for maximum utility
+
+### 4A. Web Search Tool
+- [ ] Integrate web search API (Google, DuckDuckGo, or similar)
+- [ ] Implement search query optimization
+- [ ] Build result parsing and summarization
+- [ ] Create search result caching to reduce API calls
+- [ ] Add rate limiting for search requests
+- [ ] **TEST**: Search returns relevant results
+- [ ] **TEST**: Results are properly summarized
+- [ ] **TEST**: Rate limiting prevents abuse
+
+### 4B. Calculator & Computation Tool
+- [ ] Implement safe mathematical expression parser
+- [ ] Build support for basic arithmetic operations
+- [ ] Add support for advanced functions (trigonometry, statistics, etc.)
+- [ ] Create unit conversion capabilities
+- [ ] Implement date/time calculations
+- [ ] **TEST**: Mathematical expressions evaluate correctly
+- [ ] **TEST**: Complex calculations are accurate
+- [ ] **TEST**: Malicious expressions are rejected
+
+### 4C. Script Execution Tool
+- [ ] Design secure script execution sandbox
+- [ ] Implement allowlist of permitted operations
+- [ ] Build script timeout and resource limits
+- [ ] Create script result capture and logging
+- [ ] Add user approval workflow for potentially dangerous scripts
+- [ ] **TEST**: Scripts execute successfully in sandbox
+- [ ] **TEST**: Resource limits prevent runaway processes
+- [ ] **TEST**: Dangerous operations require approval
+
+### 4D. Vision Capabilities - PC Screenshots
+- [ ] Build screen capture API for PC
+- [ ] Implement screenshot request queue
+- [ ] Integrate with Claude Vision API or GPT-4 Vision
+- [ ] Create screenshot analysis and description
+- [ ] Build OCR capability for text extraction
+- [ ] Add screenshot history and archival
+- [ ] **TEST**: Screenshots capture correctly
+- [ ] **TEST**: Vision API analyzes images accurately
+- [ ] **TEST**: OCR extracts text reliably
+
+### 4E. Vision Capabilities - User-Sent Images
+- [ ] Implement MMS support through SMS provider
+- [ ] Build image upload capability in web dashboard
+- [ ] Create image storage with encryption
+- [ ] Implement image analysis via vision model
+- [ ] Build context-aware image understanding
+- [ ] Add image metadata extraction
+- [ ] **TEST**: MMS images received and processed
+- [ ] **TEST**: Dashboard uploads work correctly
+- [ ] **TEST**: Vision analysis provides useful insights
+
+### 4F. Vision Capabilities - Webcam Integration
+- [ ] Design webcam capture system
+- [ ] Implement periodic snapshot capability
+- [ ] Build posture check analysis
+- [ ] Create cat monitoring mode (fun feature!)
+- [ ] Implement motion detection for security
+- [ ] Add activity detection and alerts
+- [ ] **TEST**: Webcam captures successfully
+- [ ] **TEST**: Posture analysis provides feedback
+- [ ] **TEST**: Cat detected and monitored correctly
+
+### 4G. Privacy Controls & Toggles
+- [ ] Design privacy settings schema
+- [ ] Build dashboard UI for privacy toggles
+- [ ] Implement per-capability on/off switches:
+  - [ ] Web search enabled/disabled
+  - [ ] Script execution enabled/disabled
+  - [ ] Screenshot capture enabled/disabled
+  - [ ] User image analysis enabled/disabled
+  - [ ] Webcam access enabled/disabled
+  - [ ] Cat monitoring enabled/disabled
+  - [ ] Security monitoring enabled/disabled
+- [ ] Create visual indicators for active monitoring
+- [ ] Implement instant capability shutdown
+- [ ] Build privacy mode (all vision off) quick toggle
+- [ ] Add logging of when capabilities are enabled/disabled
+- [ ] **TEST**: Toggles immediately enable/disable features
+- [ ] **TEST**: Visual indicators update in real-time
+- [ ] **TEST**: Privacy mode disables all vision features
+- [ ] **SECURITY TEST**: Disabled features cannot be accessed
+
+### 4H. Integration with Remote PC Agent
+- [ ] Integrate screenshot tool with Remote PC Agent (Phase 7)
+- [ ] Build remote webcam access capability
+- [ ] Create bandwidth-efficient image transmission
+- [ ] Implement on-demand vs periodic capture modes
+- [ ] **TEST**: Remote screenshot requests work
+- [ ] **TEST**: Images transmit efficiently
+
+---
+
+## Phase 5: Scheduling & Proactive Features
 
 **Goal**: Build scheduling system and proactive reminder capabilities
 
-### 4A. Calendar Integration
+### 5A. Calendar Integration
 - [ ] Design event/task schema
 - [ ] Implement basic calendar CRUD operations
 - [ ] Build recurring event support
@@ -189,7 +287,7 @@ Build a comprehensive AI-powered personal assistant that acts as a proactive dig
 - [ ] **TEST**: Recurring events generate correctly
 - [ ] **TEST**: Queries return correct date ranges
 
-### 4B. Reminder System
+### 5B. Reminder System
 - [ ] Design reminder schema with flexible timing
 - [ ] Implement reminder scheduling engine
 - [ ] Build reminder delivery via SMS
@@ -199,7 +297,7 @@ Build a comprehensive AI-powered personal assistant that acts as a proactive dig
 - [ ] **TEST**: Snooze reschedules correctly
 - [ ] **TEST**: Sleep hours are respected
 
-### 4C. Proactive Check-ins
+### 5C. Proactive Check-ins
 - [ ] Design proactive check-in rules engine
 - [ ] Implement morning check-in system
 - [ ] Build evening summary/reflection prompt
@@ -207,7 +305,7 @@ Build a comprehensive AI-powered personal assistant that acts as a proactive dig
 - [ ] **TEST**: Check-ins occur at appropriate times
 - [ ] **TEST**: Frequency adapts to engagement level
 
-### 4D. Goal Tracking
+### 5D. Goal Tracking
 - [ ] Design goal schema (short-term, long-term, habits)
 - [ ] Implement goal CRUD with progress tracking
 - [ ] Build milestone and deadline management
@@ -218,11 +316,11 @@ Build a comprehensive AI-powered personal assistant that acts as a proactive dig
 
 ---
 
-## Phase 5: Health & Wellness Module
+## Phase 6: Health & Wellness Module
 
 **Goal**: Build health tracking, diet logging, exercise reminders, and wellness features
 
-### 5A. Sleep Tracking
+### 6A. Sleep Tracking
 - [ ] Design sleep log schema
 - [ ] Implement manual sleep/wake logging via SMS
 - [ ] Build automatic sleep detection from patterns
@@ -232,7 +330,7 @@ Build a comprehensive AI-powered personal assistant that acts as a proactive dig
 - [ ] **TEST**: Pattern detection identifies sleep times
 - [ ] **TEST**: Recommendations are actionable
 
-### 5B. Diet & Nutrition
+### 6B. Diet & Nutrition
 - [ ] Design food log schema
 - [ ] Implement meal logging via SMS (natural language)
 - [ ] Build nutrition estimation from descriptions
@@ -242,7 +340,7 @@ Build a comprehensive AI-powered personal assistant that acts as a proactive dig
 - [ ] **TEST**: Nutrition estimates are reasonable
 - [ ] **TEST**: Hydration reminders fire correctly
 
-### 5C. Exercise & Movement
+### 6C. Exercise & Movement
 - [ ] Design exercise log schema
 - [ ] Implement workout logging
 - [ ] Build movement/stretch reminders for sedentary periods
@@ -252,7 +350,7 @@ Build a comprehensive AI-powered personal assistant that acts as a proactive dig
 - [ ] **TEST**: Reminders trigger after inactivity
 - [ ] **TEST**: Streaks calculate accurately
 
-### 5D. Physical Therapy / Stretch Guidance
+### 6D. Physical Therapy / Stretch Guidance
 - [ ] Design stretch routine schema
 - [ ] Implement customizable stretch routines
 - [ ] Build posture check-in reminders
@@ -260,7 +358,7 @@ Build a comprehensive AI-powered personal assistant that acts as a proactive dig
 - [ ] **TEST**: Routines deliver correct stretches
 - [ ] **TEST**: Instructions are clear and safe
 
-### 5E. Health Dashboard Data
+### 6E. Health Dashboard Data
 - [ ] Aggregate health metrics for dashboard
 - [ ] Implement trend analysis
 - [ ] Create health score calculation
@@ -270,11 +368,11 @@ Build a comprehensive AI-powered personal assistant that acts as a proactive dig
 
 ---
 
-## Phase 6: Remote Access & Control
+## Phase 7: Remote Access & Control
 
 **Goal**: Enable secure remote access to home PC
 
-### 6A. Remote Agent Design
+### 7A. Remote Agent Design
 - [ ] Design secure communication protocol for remote agent
 - [ ] Create agent authentication system
 - [ ] Build command queue for remote operations
@@ -282,7 +380,7 @@ Build a comprehensive AI-powered personal assistant that acts as a proactive dig
 - [ ] **SECURITY TEST**: Authentication cannot be bypassed
 - [ ] **SECURITY TEST**: Commands are authorized
 
-### 6B. Home PC Agent
+### 7B. Home PC Agent
 - [ ] Create lightweight agent application for home PC
 - [ ] Implement secure connection establishment
 - [ ] Build file operation commands (read, list, search)
@@ -292,7 +390,7 @@ Build a comprehensive AI-powered personal assistant that acts as a proactive dig
 - [ ] **TEST**: File operations work correctly
 - [ ] **TEST**: Applications launch successfully
 
-### 6C. Command Interface
+### 7C. Command Interface
 - [ ] Design command syntax for remote operations
 - [ ] Implement command parsing and validation
 - [ ] Build command execution with timeout
@@ -301,7 +399,7 @@ Build a comprehensive AI-powered personal assistant that acts as a proactive dig
 - [ ] **TEST**: Timeouts prevent hanging
 - [ ] **TEST**: History logs all operations
 
-### 6D. Security (Remote Access)
+### 7D. Security (Remote Access)
 - [ ] Implement certificate-based authentication
 - [ ] Create IP allowlisting option
 - [ ] Build anomaly detection for unusual access
@@ -312,11 +410,11 @@ Build a comprehensive AI-powered personal assistant that acts as a proactive dig
 
 ---
 
-## Phase 7: ADHD Support & Body Double
+## Phase 8: ADHD Support & Body Double
 
 **Goal**: Build features specifically designed for ADHD support and accountability
 
-### 7A. Task Breakdown
+### 8A. Task Breakdown
 - [ ] Design task decomposition system
 - [ ] Implement automatic large task breakdown
 - [ ] Build "just start" micro-task suggestions
@@ -324,7 +422,7 @@ Build a comprehensive AI-powered personal assistant that acts as a proactive dig
 - [ ] **TEST**: Large tasks break into manageable pieces
 - [ ] **TEST**: Micro-tasks are actionable
 
-### 7B. Focus Support
+### 8B. Focus Support
 - [ ] Design focus session schema
 - [ ] Implement focus mode with check-ins
 - [ ] Build distraction acknowledgment system
@@ -332,7 +430,7 @@ Build a comprehensive AI-powered personal assistant that acts as a proactive dig
 - [ ] **TEST**: Focus sessions track correctly
 - [ ] **TEST**: Check-ins are helpful not annoying
 
-### 7C. Accountability Partner
+### 8C. Accountability Partner
 - [ ] Implement commitment logging
 - [ ] Build "body double" check-in sequences
 - [ ] Create non-judgmental progress inquiries
@@ -340,7 +438,7 @@ Build a comprehensive AI-powered personal assistant that acts as a proactive dig
 - [ ] **TEST**: Commitments track correctly
 - [ ] **TEST**: Check-ins feel supportive
 
-### 7D. Transition Support
+### 8D. Transition Support
 - [ ] Design transition reminder system
 - [ ] Implement "5 minute warning" before changes
 - [ ] Build task switching assistance
@@ -348,7 +446,7 @@ Build a comprehensive AI-powered personal assistant that acts as a proactive dig
 - [ ] **TEST**: Warnings fire at correct intervals
 - [ ] **TEST**: Transitions feel smooth
 
-### 7E. Emotional Support
+### 8E. Emotional Support
 - [ ] Implement mood check-ins
 - [ ] Build encouragement message system
 - [ ] Create frustration detection and response
@@ -358,11 +456,11 @@ Build a comprehensive AI-powered personal assistant that acts as a proactive dig
 
 ---
 
-## Phase 8: Web Dashboard & Mobile
+## Phase 9: Web Dashboard & Mobile
 
 **Goal**: Build user interfaces for comprehensive access and management
 
-### 8A. Web Dashboard Foundation
+### 9A. Web Dashboard Foundation
 - [ ] Set up React + TypeScript + Tailwind project
 - [ ] Implement authentication with secure session management
 - [ ] Create base layout and navigation
@@ -370,7 +468,7 @@ Build a comprehensive AI-powered personal assistant that acts as a proactive dig
 - [ ] **TEST**: Authentication flow works
 - [ ] **TEST**: Responsive on mobile/desktop
 
-### 8B. Dashboard Pages
+### 9B. Dashboard Pages
 - [ ] Today overview (schedule, tasks, health)
 - [ ] Calendar/schedule management view
 - [ ] Goals and progress tracking view
@@ -380,7 +478,7 @@ Build a comprehensive AI-powered personal assistant that acts as a proactive dig
 - [ ] **TEST**: Each page loads and displays correctly
 - [ ] **TEST**: Data updates reflect in UI
 
-### 8C. Dashboard Features
+### 9C. Dashboard Features
 - [ ] Implement real-time updates (WebSocket)
 - [ ] Build data visualization for trends
 - [ ] Create quick-add interfaces for common actions
@@ -388,7 +486,7 @@ Build a comprehensive AI-powered personal assistant that acts as a proactive dig
 - [ ] **TEST**: Real-time updates work
 - [ ] **TEST**: Visualizations render correctly
 
-### 8D. Mobile Considerations
+### 9D. Mobile Considerations
 - [ ] Ensure PWA compliance for mobile install
 - [ ] Optimize touch interactions
 - [ ] Implement offline capability for viewing
@@ -396,7 +494,7 @@ Build a comprehensive AI-powered personal assistant that acts as a proactive dig
 - [ ] **TEST**: PWA installs correctly
 - [ ] **TEST**: Offline mode shows cached data
 
-### 8E. UI/UX Polish
+### 9E. UI/UX Polish
 - [ ] Apply frontend design guidelines from AGENTS.md
 - [ ] Create cohesive visual theme
 - [ ] Implement meaningful animations
@@ -406,11 +504,11 @@ Build a comprehensive AI-powered personal assistant that acts as a proactive dig
 
 ---
 
-## Phase 9: Integration & Polish
+## Phase 10: Integration & Polish
 
 **Goal**: Connect all systems and polish the complete experience
 
-### 9A. System Integration
+### 10A. System Integration
 - [ ] Connect all backend services through unified API
 - [ ] Implement cross-module data sharing
 - [ ] Build system-wide event bus
@@ -418,7 +516,7 @@ Build a comprehensive AI-powered personal assistant that acts as a proactive dig
 - [ ] **TEST**: Services communicate correctly
 - [ ] **TEST**: Events propagate appropriately
 
-### 9B. AI Integration
+### 10B. AI Integration
 - [ ] Implement LLM integration for natural language processing
 - [ ] Build context-aware response generation
 - [ ] Create personalized interaction patterns
@@ -426,7 +524,7 @@ Build a comprehensive AI-powered personal assistant that acts as a proactive dig
 - [ ] **TEST**: NLP understands user intents
 - [ ] **TEST**: Responses feel personalized
 
-### 9C. Performance Optimization
+### 10C. Performance Optimization
 - [ ] Profile and optimize database queries
 - [ ] Implement caching strategy across services
 - [ ] Optimize frontend bundle size
@@ -434,7 +532,7 @@ Build a comprehensive AI-powered personal assistant that acts as a proactive dig
 - [ ] **TEST**: Response times meet targets
 - [ ] **TEST**: No memory leaks
 
-### 9D. Error Handling & Recovery
+### 10D. Error Handling & Recovery
 - [ ] Implement comprehensive error handling
 - [ ] Build automatic retry logic where appropriate
 - [ ] Create graceful degradation for service failures
@@ -444,11 +542,11 @@ Build a comprehensive AI-powered personal assistant that acts as a proactive dig
 
 ---
 
-## Phase 10: Security Audit & Deployment
+## Phase 11: Security Audit & Deployment
 
 **Goal**: Final security review and production deployment
 
-### 10A. Security Audit
+### 11A. Security Audit
 - [ ] Conduct full OWASP Top 10 review
 - [ ] Perform dependency vulnerability scan
 - [ ] Review all authentication flows
@@ -458,7 +556,7 @@ Build a comprehensive AI-powered personal assistant that acts as a proactive dig
 - [ ] **SECURITY TEST**: Penetration testing
 - [ ] **SECURITY TEST**: API security testing
 
-### 10B. Privacy Review
+### 11B. Privacy Review
 - [ ] Audit all data collection
 - [ ] Review data retention policies
 - [ ] Implement data export functionality
@@ -467,7 +565,7 @@ Build a comprehensive AI-powered personal assistant that acts as a proactive dig
 - [ ] **TEST**: Export provides all user data
 - [ ] **TEST**: Deletion removes all user data
 
-### 10C. Deployment Preparation
+### 11C. Deployment Preparation
 - [ ] Create production environment configuration
 - [ ] Set up monitoring and alerting
 - [ ] Implement health check endpoints
@@ -476,15 +574,15 @@ Build a comprehensive AI-powered personal assistant that acts as a proactive dig
 - [ ] **TEST**: Health checks report correctly
 - [ ] **TEST**: Alerts fire appropriately
 
-### 10D. Documentation
+### 11D. Documentation
 - [ ] Complete API documentation
 - [ ] Write user guide
 - [ ] Create troubleshooting guide
 - [ ] Document architecture for maintenance
 - [ ] **TEST**: Documentation is accurate
 
-### 10E. Launch Checklist
-- [ ] All Phase 1-9 tests passing
+### 11E. Launch Checklist
+- [ ] All Phase 1-11 tests passing
 - [ ] Security audit complete, issues resolved
 - [ ] Performance meets requirements
 - [ ] Backup and recovery tested
@@ -513,3 +611,4 @@ Build a comprehensive AI-powered personal assistant that acts as a proactive dig
 | 2025-01-18T23:57:00Z | Claude (Opus 4.5) | Initial TODO.md creation with full 10-phase project breakdown |
 | 2026-01-19T00:12:00Z | Claude (Opus 4.5) | Completed Phase 1A (Project Setup) and most of 1B (Development Tooling) |
 | 2026-01-19T00:20:00Z | Claude (Opus 4.5) | Added Phase 1C (Database/Redis) and Phase 1D (Security/Encryption) implementations |
+| 2026-01-19T03:15:00Z | Claude (Sonnet 4.5) | Added Phase 4: AI Tool Integration & Capabilities (web search, calculator, script execution, vision with privacy controls), renumbered all subsequent phases 4-10 to 5-11 |
