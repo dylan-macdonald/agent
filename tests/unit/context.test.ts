@@ -40,7 +40,7 @@ describe('ContextService', () => {
     } as unknown as MemoryService;
 
     mockPatternService = {
-      searchPatterns: vi.fn(),
+      getPatterns: vi.fn(),
     } as unknown as PatternService;
 
     contextService = new ContextService(mockDb, mockMemoryService, mockPatternService);
@@ -137,17 +137,24 @@ describe('ContextService', () => {
         {
           id: 'mem-1',
           userId: 'user-123',
-          type: MemoryType.EPISODIC,
+          type: MemoryType.CONVERSATION,
           content: 'Had breakfast at 8am',
-          importance: 0.7,
-          timestamp: new Date(now.getTime() - 3600000),
+          importance: 3,
+          status: 'active' as const,
+          tags: [],
           metadata: {},
-          createdAt: now,
+          relatedMemoryIds: [],
+          accessCount: 0,
+          createdAt: new Date(now.getTime() - 3600000),
           updatedAt: now,
         },
       ];
 
-      vi.spyOn(mockMemoryService, 'searchMemories').mockResolvedValueOnce(mockMemories);
+      vi.spyOn(mockMemoryService, 'searchMemories').mockResolvedValueOnce({
+        memories: mockMemories,
+        total: mockMemories.length,
+        hasMore: false,
+      });
 
       // Mock pattern search
       const mockPatterns = [
@@ -175,7 +182,7 @@ describe('ContextService', () => {
         },
       ];
 
-      vi.spyOn(mockPatternService, 'searchPatterns').mockResolvedValueOnce(mockPatterns);
+      vi.spyOn(mockPatternService, 'getPatterns').mockResolvedValueOnce(mockPatterns);
 
       // Mock database queries (cleanup, then stored context)
       vi.spyOn(mockDb, 'query')
@@ -204,8 +211,12 @@ describe('ContextService', () => {
         .mockResolvedValueOnce({ rows: [] } as never)
         .mockResolvedValueOnce({ rows: [] } as never);
 
-      vi.spyOn(mockMemoryService, 'searchMemories').mockResolvedValueOnce([]);
-      vi.spyOn(mockPatternService, 'searchPatterns').mockResolvedValueOnce([]);
+      vi.spyOn(mockMemoryService, 'searchMemories').mockResolvedValueOnce({
+        memories: [],
+        total: 0,
+        hasMore: false,
+      });
+      vi.spyOn(mockPatternService, 'getPatterns').mockResolvedValueOnce([]);
 
       const result = await contextService.aggregateContext({
         userId: 'user-123',
@@ -232,21 +243,28 @@ describe('ContextService', () => {
         .mockResolvedValueOnce({ rowCount: 0 } as never)
         .mockResolvedValueOnce({ rows: [] } as never);
 
-      vi.spyOn(mockMemoryService, 'searchMemories').mockResolvedValueOnce([
-        {
-          id: 'mem-1',
-          userId: 'user-123',
-          type: MemoryType.EPISODIC,
-          content: 'Morning workout at the gym',
-          importance: 0.8,
-          timestamp: now,
-          metadata: {},
-          createdAt: now,
-          updatedAt: now,
-        },
-      ]);
+      vi.spyOn(mockMemoryService, 'searchMemories').mockResolvedValueOnce({
+        memories: [
+          {
+            id: 'mem-1',
+            userId: 'user-123',
+            type: MemoryType.CONVERSATION,
+            content: 'Morning workout at the gym',
+            importance: 4,
+            status: 'active' as const,
+            tags: [],
+            metadata: {},
+            relatedMemoryIds: [],
+            accessCount: 0,
+            createdAt: now,
+            updatedAt: now,
+          },
+        ],
+        total: 1,
+        hasMore: false,
+      });
 
-      vi.spyOn(mockPatternService, 'searchPatterns').mockResolvedValueOnce([]);
+      vi.spyOn(mockPatternService, 'getPatterns').mockResolvedValueOnce([]);
 
       const results = await contextService.queryContext({
         userId: 'user-123',

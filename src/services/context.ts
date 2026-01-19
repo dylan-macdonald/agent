@@ -19,14 +19,12 @@ import {
   ContextQuery,
   ContextSearchResult,
   UpdateContextInput,
-  RelevanceFactors,
   getTimeWindowForDate,
   getRelevanceLevelFromScore,
   isContextExpired,
   getTimeOfDay,
   calculateRecencyScore,
   getDefaultExpiry,
-  calculateRelevanceScore,
   detectPatternDeviation,
   StateContextData,
   EnvironmentContextData,
@@ -34,7 +32,6 @@ import {
 import { MemoryService } from './memory.js';
 import { PatternService } from './pattern.js';
 import { MemoryType, MemorySearchQuery } from '../types/memory.js';
-import { PatternType, Pattern } from '../types/pattern.js';
 import { NotFoundError } from '../types/index.js';
 import { logger } from '../utils/logger.js';
 
@@ -188,9 +185,9 @@ export class ContextService {
 
     // Get stored context items
     const storedContexts = await this.getStoredContext(userId, {
-      categories,
-      minRelevance,
-      timeWindow,
+      ...(categories && { categories }),
+      ...(minRelevance && { minRelevance }),
+      ...(timeWindow && { timeWindow }),
     });
     items.push(...storedContexts);
 
@@ -223,7 +220,7 @@ export class ContextService {
   /**
    * Get environment context (time, day, etc.)
    */
-  private async getEnvironmentContext(userId: string): Promise<ContextItem> {
+  private async getEnvironmentContext(_userId: string): Promise<ContextItem> {
     const now = new Date();
 
     // Get user timezone (would normally fetch from user profile)
@@ -259,37 +256,38 @@ export class ContextService {
   ): Promise<ContextItem[]> {
     const searchQuery: MemorySearchQuery = {
       userId,
-      sortBy: 'timestamp',
+      sortBy: 'createdAt',
       limit,
     };
 
     // Adjust query based on time window
     if (timeWindow === ContextTimeWindow.NOW || timeWindow === ContextTimeWindow.RECENT) {
-      searchQuery.types = [MemoryType.EPISODIC, MemoryType.WORKING];
+      searchQuery.types = [MemoryType.CONVERSATION, MemoryType.EVENT];
     }
 
-    const memories = await this.memoryService.searchMemories(searchQuery);
+    const searchResult = await this.memoryService.searchMemories(searchQuery);
     const now = new Date();
 
-    return memories.map((memory) => {
-      const recencyScore = calculateRecencyScore(memory.timestamp, now);
-      const importanceScore = memory.importance;
+    return searchResult.memories.map((memory) => {
+      const recencyScore = calculateRecencyScore(memory.createdAt, now);
+      const importanceScore = memory.importance / 5; // Normalize to 0-1
       const relevanceScore = (recencyScore + importanceScore) / 2;
+
+      const expiresAt = this.getMemoryExpiry(memory.type);
 
       return {
         id: randomUUID(),
         category: ContextCategory.RECENT_ACTIVITY,
         relevance: getRelevanceLevelFromScore(relevanceScore),
         relevanceScore,
-        timeWindow: getTimeWindowForDate(memory.timestamp, now),
-        timestamp: memory.timestamp,
-        expiresAt: this.getMemoryExpiry(memory.type),
+        timeWindow: getTimeWindowForDate(memory.createdAt, now),
+        timestamp: memory.createdAt,
+        ...(expiresAt && { expiresAt }),
         metadata: {
           memory: {
             memoryId: memory.id,
             memoryType: memory.type,
             content: memory.content,
-            embedding: memory.embedding,
           },
         },
       };
@@ -300,7 +298,7 @@ export class ContextService {
    * Get pattern-based context
    */
   private async getPatternBasedContext(userId: string): Promise<ContextItem[]> {
-    const patterns = await this.patternService.searchPatterns({
+    const patterns = await this.patternService.getPatterns({
       userId,
       active: true,
       minConfidence: 0.5,
@@ -446,9 +444,9 @@ export class ContextService {
     // Get aggregated context
     const context = await this.aggregateContext({
       userId,
-      timeWindow,
-      categories,
-      minRelevance,
+      ...(timeWindow && { timeWindow }),
+      ...(categories && { categories }),
+      ...(minRelevance && { minRelevance }),
       maxItems: 100,
     });
 
@@ -535,6 +533,8 @@ export class ContextService {
    * Map database row to ContextItem
    */
   private mapRowToContextItem(row: Record<string, unknown>): ContextItem {
+    const expiresAt = row.expires_at ? (row.expires_at as Date) : undefined;
+
     return {
       id: row.id as string,
       category: row.category as ContextCategory,
@@ -542,7 +542,7 @@ export class ContextService {
       relevanceScore: parseFloat(row.relevance_score as string),
       timeWindow: row.time_window as ContextTimeWindow,
       timestamp: row.timestamp as Date,
-      expiresAt: row.expires_at as Date | undefined,
+      ...(expiresAt && { expiresAt }),
       metadata: (typeof row.metadata === 'string'
         ? JSON.parse(row.metadata)
         : row.metadata) as ContextMetadata,
@@ -566,15 +566,18 @@ export class ContextService {
   /**
    * Get expiry time for memory type
    */
-  private getMemoryExpiry(memoryType: MemoryType): Date {
+  private getMemoryExpiry(memoryType: MemoryType): Date | undefined {
     const expiry = new Date();
 
     switch (memoryType) {
-      case MemoryType.WORKING:
+      case MemoryType.CONVERSATION:
         expiry.setHours(expiry.getHours() + 2);
         break;
-      case MemoryType.EPISODIC:
+      case MemoryType.EVENT:
         expiry.setDate(expiry.getDate() + 7);
+        break;
+      case MemoryType.OBSERVATION:
+        expiry.setDate(expiry.getDate() + 14);
         break;
       default:
         expiry.setDate(expiry.getDate() + 30);

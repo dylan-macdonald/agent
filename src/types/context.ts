@@ -5,7 +5,7 @@
  * and other sources to enable context-aware AI interactions
  */
 
-import { Memory, MemoryType } from './memory.js';
+import { MemoryType } from './memory.js';
 import { Pattern, PatternType } from './pattern.js';
 
 /**
