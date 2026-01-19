@@ -27,3 +27,18 @@ export {
 } from "./audit.js";
 
 export type { AuditEntry } from "./audit.js";
+
+export {
+  MIN_TLS_VERSION,
+  PREFERRED_TLS_VERSION,
+  SECURE_CIPHERS,
+  loadServerTLSConfig,
+  getClientTLSConfig,
+  createSecureHttpsAgent,
+  secureHttpsAgent,
+  enforceHttps,
+  checkCertificateExpiration,
+  getTLSConfigSummary,
+} from "./tls.js";
+
+export type { ServerTLSConfig, ClientTLSConfig } from "./tls.js";

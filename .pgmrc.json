@@ -1,0 +1,11 @@
+{
+  "migrations-dir": "migrations",
+  "migrations-table": "pgmigrations",
+  "database-url-var": "DATABASE_URL",
+  "ignore-pattern": "\\..*",
+  "schema": "public",
+  "decamelize": false,
+  "verbose": true,
+  "check-order": true,
+  "reject-unauthorized": false
+}
