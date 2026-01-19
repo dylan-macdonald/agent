@@ -10,33 +10,10 @@ export type Timestamp = Date;
 export type UUID = string;
 
 // =============================================================================
-// User Types
+// User Types (consolidated from user.ts)
 // =============================================================================
 
-export interface User {
-  id: UUID;
-  email: string;
-  phoneNumber?: string;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
-}
-
-export interface UserPreference {
-  id: UUID;
-  userId: UUID;
-  category: PreferenceCategory;
-  key: string;
-  value: unknown;
-  lastUpdated: Timestamp;
-}
-
-export enum PreferenceCategory {
-  NOTIFICATION = "notification",
-  SCHEDULING = "scheduling",
-  HEALTH = "health",
-  PRIVACY = "privacy",
-  DISPLAY = "display",
-}
+export * from "./user.js";
 
 // =============================================================================
 // Memory Types
