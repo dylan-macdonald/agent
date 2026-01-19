@@ -109,14 +109,14 @@ Build a comprehensive AI-powered personal assistant that acts as a proactive dig
 - [x] **TEST**: Caching reduces database calls (cache hit/miss tests passing)
 
 ### 2B. Memory Storage
-- [ ] Design memory schema (facts, observations, patterns)
-- [ ] Implement memory storage with encryption
-- [ ] Create memory categorization system
-- [ ] Build memory search/retrieval by relevance
-- [ ] Implement memory expiration/archival
-- [ ] **TEST**: Store and retrieve encrypted memories
-- [ ] **TEST**: Search returns relevant memories
-- [ ] **TEST**: Expired memories are handled correctly
+- [x] Design memory schema (facts, observations, patterns)
+- [x] Implement memory storage with encryption (AES-256)
+- [x] Create memory categorization system (6 types: FACT, OBSERVATION, PATTERN, PREFERENCE, CONVERSATION, EVENT)
+- [x] Build memory search/retrieval by relevance (multi-factor scoring with keywords, importance, recency, access frequency)
+- [x] Implement memory expiration/archival (type-based policies: 30-365 days)
+- [x] **TEST**: Store and retrieve encrypted memories (25 tests passing)
+- [x] **TEST**: Search returns relevant memories (full-text search, filtering, pagination)
+- [x] **TEST**: Expired memories are handled correctly (archival, deletion, extension)
 
 ### 2C. Pattern Recognition
 - [ ] Create data structures for tracking user patterns
@@ -615,3 +615,4 @@ Build a comprehensive AI-powered personal assistant that acts as a proactive dig
 | 2026-01-19T03:15:00Z | Claude (Sonnet 4.5) | Added Phase 4: AI Tool Integration & Capabilities (web search, calculator, script execution, vision with privacy controls), renumbered all subsequent phases 4-10 to 5-11 |
 | 2026-01-19T04:20:00Z | Claude (Sonnet 4.5) | Completed Phase 1: E2E testing setup (Playwright), database migrations (node-pg-migrate), TLS configuration (TLS 1.3), marked Phase 1 complete |
 | 2026-01-19T05:06:00Z | Claude (Sonnet 4.5) | Completed Phase 2A: User Profile System with comprehensive types, CRUD operations, 7 preference categories, 19 preference schemas, validation, Redis caching, and 28 passing tests |
+| 2026-01-19T05:12:00Z | Claude (Sonnet 4.5) | Completed Phase 2B: Memory Storage with 6 memory types, encryption, categorization, relevance-based search, expiration/archival system, access tracking, and 25 passing tests |
