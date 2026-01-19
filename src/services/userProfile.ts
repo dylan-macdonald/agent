@@ -10,9 +10,7 @@ import {
   User,
   CreateUserInput,
   UpdateUserInput,
-  UserSetting,
   CreateUserSettingInput,
-  UpdateUserSettingInput,
   PreferenceCategory,
   PreferenceValueType,
   UserProfile,
@@ -429,7 +427,7 @@ export class UserProfileService {
         key: schema.key,
         value: schema.defaultValue,
         valueType: schema.valueType,
-        encrypted: schema.encrypted,
+        ...(schema.encrypted !== undefined && { encrypted: schema.encrypted }),
       });
     }
   }

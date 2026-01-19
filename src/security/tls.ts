@@ -7,7 +7,6 @@
 
 import https from 'https';
 import { readFileSync } from 'fs';
-import { config } from '@/config';
 import { logger } from '@/utils/logger';
 
 /**
@@ -123,7 +122,7 @@ export function getClientTLSConfig(): ClientTLSConfig {
     minVersion: PREFERRED_TLS_VERSION,
     rejectUnauthorized: process.env.NODE_ENV !== 'test',
     // Custom server identity check can be added here
-    checkServerIdentity: (hostname: string, cert: any) => {
+    checkServerIdentity: (_hostname: string, _cert: any) => {
       // Add custom certificate pinning logic here if needed
       return undefined;
     },
@@ -194,15 +193,10 @@ export function enforceHttps(url: string): string {
  *
  * Checks if certificate is expiring soon and logs warnings.
  */
-export function checkCertificateExpiration(certPath: string): void {
-  try {
-    const cert = readFileSync(certPath, 'utf8');
-    // Parse certificate and check expiration
-    // This is a placeholder - actual implementation would parse the cert
-    logger.info('Certificate expiration check placeholder');
-  } catch (error) {
-    logger.error(`Failed to check certificate expiration: ${error}`);
-  }
+export function checkCertificateExpiration(_certPath: string): void {
+  // Placeholder for certificate expiration checking
+  // Actual implementation would parse the certificate and check expiration dates
+  logger.info('Certificate expiration check placeholder');
 }
 
 /**

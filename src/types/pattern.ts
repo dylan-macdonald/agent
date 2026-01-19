@@ -311,7 +311,9 @@ export function dateToTimeString(date: Date): string {
  * Parse HH:MM to minutes since midnight
  */
 export function timeStringToMinutes(time: string): number {
-  const [hours, minutes] = time.split(':').map(Number);
+  const parts = time.split(':').map(Number);
+  const hours = parts[0] || 0;
+  const minutes = parts[1] || 0;
   return hours * 60 + minutes;
 }
 

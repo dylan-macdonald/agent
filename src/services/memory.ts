@@ -18,7 +18,6 @@ import {
   MemoryRelevance,
   MemoryStats,
   calculateExpirationDate,
-  getExpirationPolicy,
 } from '../types/memory.js';
 import { NotFoundError, ValidationError } from '../types/index.js';
 import { encrypt, decrypt } from '../security/encryption.js';
@@ -363,17 +362,17 @@ export class MemoryService {
     // Build search query
     const searchQuery: MemorySearchQuery = {
       userId,
-      types: context.types,
-      importance: context.minImportance
-        ? [
-            MemoryImportance.CRITICAL,
-            MemoryImportance.HIGH,
-            ...(context.minImportance <= MemoryImportance.MEDIUM
-              ? [MemoryImportance.MEDIUM]
-              : []),
-          ]
-        : undefined,
-      searchText: context.keywords?.join(' '),
+      ...(context.types && { types: context.types }),
+      ...(context.minImportance && {
+        importance: [
+          MemoryImportance.CRITICAL,
+          MemoryImportance.HIGH,
+          ...(context.minImportance <= MemoryImportance.MEDIUM
+            ? [MemoryImportance.MEDIUM]
+            : []),
+        ],
+      }),
+      ...(context.keywords && { searchText: context.keywords.join(' ') }),
       sortBy: 'relevance',
       limit,
     };
@@ -596,7 +595,7 @@ export class MemoryService {
       byStatus: row.by_status || {},
       oldestMemory: row.oldest_memory,
       newestMemory: row.newest_memory,
-      mostAccessedMemory,
+      ...(mostAccessedMemory && { mostAccessedMemory }),
     };
   }
 
