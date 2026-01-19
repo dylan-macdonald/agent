@@ -5,7 +5,6 @@
  */
 
 import { Pool } from 'pg';
-import Redis from 'ioredis';
 import {
   Pattern,
   PatternType,
@@ -38,10 +37,9 @@ export class PatternService {
   private readonly HIGH_CONFIDENCE_THRESHOLD = 0.8;
   private readonly MEDIUM_CONFIDENCE_THRESHOLD = 0.6;
 
-  constructor(
-    private db: Pool,
-    private _redis: Redis // Reserved for future caching
-  ) {}
+  constructor(private db: Pool) {
+    // Redis caching can be added in future iterations
+  }
 
   // ==========================================================================
   // Sleep/Wake Log Operations
@@ -485,13 +483,15 @@ export class PatternService {
     const variance = Math.round(calculateTimeStandardDeviation(startTimes));
 
     const confidence = this.calculateActivityPatternConfidence(variance, logs.length);
+    const intensity = this.getMostCommonIntensity(logs);
+    const location = this.getMostCommonLocation(logs);
 
     const metadata: ActivityPatternData = {
       activityType,
       averageStartTime: avgStartTime,
       averageDuration: avgDuration,
-      intensity: this.getMostCommonIntensity(logs),
-      location: this.getMostCommonLocation(logs),
+      ...(intensity && { intensity }),
+      ...(location && { location }),
     };
 
     const existingPattern = await this.findExistingPattern(
@@ -501,20 +501,19 @@ export class PatternService {
       activityType
     );
 
-    const patternInput: CreatePatternInput | UpdatePatternInput = {
-      name: `${activityType} Pattern`,
-      description: `Typically ${activityType} at ${avgStartTime}`,
-      recurrence: RecurrenceType.DAILY,
-      metadata: { activity: metadata },
-    };
+    const name = `${activityType} Pattern`;
+    const description = `Typically ${activityType} at ${avgStartTime}`;
+    const recurrence = RecurrenceType.DAILY;
 
     let pattern: Pattern;
-    let isNew = false;
 
     if (existingPattern) {
       const confidenceChange = confidence - existingPattern.confidence;
       pattern = await this.updatePattern(existingPattern.id, userId, {
-        ...patternInput,
+        name,
+        description,
+        recurrence,
+        metadata: { activity: metadata },
         confidence,
         dataPoints: logs.length,
         lastObservedAt: new Date(),
@@ -530,13 +529,15 @@ export class PatternService {
       pattern = await this.createPattern({
         userId,
         type: PatternType.ACTIVITY,
-        ...patternInput,
+        name,
+        description,
+        recurrence,
+        metadata: { activity: metadata },
       });
-      isNew = true;
 
       return {
         pattern,
-        isNew,
+        isNew: true,
         insights: this.generateActivityInsights(metadata, confidence),
       };
     }
@@ -546,10 +547,10 @@ export class PatternService {
    * Detect day-specific activity pattern
    */
   private async detectDaySpecificActivityPattern(
-    userId: string,
-    activityType: string,
-    day: DayOfWeek,
-    logs: ActivityLog[]
+    _userId: string,
+    _activityType: string,
+    _day: DayOfWeek,
+    _logs: ActivityLog[]
   ): Promise<PatternDetectionResult | null> {
     // Implementation similar to detectOverallActivityPattern but day-specific
     // For brevity, returning null - full implementation would follow similar pattern
@@ -1067,13 +1068,14 @@ export class PatternService {
    * Map database row to SleepWakeLog
    */
   private mapRowToSleepWakeLog(row: any): SleepWakeLog {
+    const quality = row.quality !== null ? parseFloat(row.quality) : undefined;
     return {
       id: row.id,
       userId: row.user_id,
       sleepTime: row.sleep_time,
       wakeTime: row.wake_time,
       duration: row.duration,
-      quality: row.quality !== null ? parseFloat(row.quality) : undefined,
+      ...(quality !== undefined && { quality }),
       notes: row.notes,
       createdAt: row.created_at,
     };
@@ -1083,6 +1085,7 @@ export class PatternService {
    * Map database row to ActivityLog
    */
   private mapRowToActivityLog(row: any): ActivityLog {
+    const intensity = row.intensity as 'low' | 'medium' | 'high' | undefined;
     return {
       id: row.id,
       userId: row.user_id,
@@ -1091,7 +1094,7 @@ export class PatternService {
       endTime: row.end_time,
       duration: row.duration,
       location: row.location,
-      intensity: row.intensity as 'low' | 'medium' | 'high' | undefined,
+      ...(intensity && { intensity }),
       notes: row.notes,
       createdAt: row.created_at,
     };
