@@ -16,26 +16,10 @@ export type UUID = string;
 export * from "./user.js";
 
 // =============================================================================
-// Memory Types
+// Memory Types (consolidated from memory.ts)
 // =============================================================================
 
-export interface Memory {
-  id: UUID;
-  userId: UUID;
-  type: MemoryType;
-  content: string;
-  metadata: Record<string, unknown>;
-  importance: number;
-  createdAt: Timestamp;
-  expiresAt?: Timestamp;
-}
-
-export enum MemoryType {
-  FACT = "fact",
-  OBSERVATION = "observation",
-  PATTERN = "pattern",
-  PREFERENCE = "preference",
-}
+export * from "./memory.js";
 
 // =============================================================================
 // Scheduling Types
