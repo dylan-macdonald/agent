@@ -52,7 +52,9 @@ export class BillingService {
     if (parts.length !== 3) {
       throw new Error('Invalid encrypted data format');
     }
-    const [ivHex, authTagHex, encrypted] = parts;
+    const ivHex = parts[0] as string;
+    const authTagHex = parts[1] as string;
+    const encrypted = parts[2] as string;
     const iv = Buffer.from(ivHex, 'hex');
     const authTag = Buffer.from(authTagHex, 'hex');
     const key = Buffer.from(ENCRYPTION_KEY.slice(0, 32).padEnd(32, '0'));

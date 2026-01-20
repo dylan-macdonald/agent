@@ -124,8 +124,8 @@ export function createDashboardRouter(
                 userId,
                 title,
                 description,
-                targetDate: targetDate ? new Date(targetDate) : undefined,
-                metrics
+                metrics,
+                ...(targetDate && { targetDate: new Date(targetDate) })
             });
 
             res.status(201).json({ goal });
@@ -268,7 +268,7 @@ export function createDashboardRouter(
                 durationMins,
                 caloriesBurned,
                 notes,
-                startedAt: startedAt ? new Date(startedAt) : undefined
+                ...(startedAt && { startedAt: new Date(startedAt) })
             });
 
             res.status(201).json({ workout });
