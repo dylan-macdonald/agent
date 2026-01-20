@@ -22,6 +22,7 @@ export function DashboardLayout() {
         if (location.pathname === '/') return 'Overview';
         if (location.pathname.startsWith('/chat')) return 'Chat';
         if (location.pathname.startsWith('/calendar')) return 'Calendar';
+        if (location.pathname.startsWith('/goals')) return 'Goals';
         if (location.pathname.startsWith('/health')) return 'Health & Wellness';
         if (location.pathname.startsWith('/settings')) return 'Settings';
         return '';
@@ -66,7 +67,6 @@ export function DashboardLayout() {
                         label="Goals"
                         active={isActive('/goals')}
                         onClick={() => navigate('/goals')}
-                        disabled
                     />
                     <NavItem
                         icon={<Activity size={18} />}
