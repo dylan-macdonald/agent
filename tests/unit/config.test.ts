@@ -51,7 +51,9 @@ describe("Configuration Module", () => {
 
   it("should reject insecure production configuration", async () => {
     process.env["NODE_ENV"] = "production";
-    // Using default development values should fail
+    // Explicitly clear secure keys to force default (insecure) values
+    delete process.env["JWT_SECRET"];
+    delete process.env["ENCRYPTION_KEY"];
 
     const { loadConfig, validateProductionConfig } = await import(
       "@/config/index.js"
