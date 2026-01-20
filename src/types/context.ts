@@ -238,11 +238,11 @@ export function getTimeWindowForDate(date: Date, now: Date = new Date()): Contex
   const diffHours = diffMs / (1000 * 60 * 60);
   const diffDays = diffHours / 24;
 
-  if (diffHours < 0.5) return ContextTimeWindow.NOW;
-  if (diffHours < 6) return ContextTimeWindow.RECENT;
-  if (diffDays < 1) return ContextTimeWindow.TODAY;
-  if (diffDays < 7) return ContextTimeWindow.THIS_WEEK;
-  if (diffDays < 30) return ContextTimeWindow.THIS_MONTH;
+  if (diffHours < 0.5) {return ContextTimeWindow.NOW;}
+  if (diffHours < 6) {return ContextTimeWindow.RECENT;}
+  if (diffDays < 1) {return ContextTimeWindow.TODAY;}
+  if (diffDays < 7) {return ContextTimeWindow.THIS_WEEK;}
+  if (diffDays < 30) {return ContextTimeWindow.THIS_MONTH;}
   return ContextTimeWindow.LONGER_TERM;
 }
 
@@ -250,10 +250,10 @@ export function getTimeWindowForDate(date: Date, now: Date = new Date()): Contex
  * Helper: Get relevance enum from score
  */
 export function getRelevanceLevelFromScore(score: number): ContextRelevance {
-  if (score >= 0.9) return ContextRelevance.CRITICAL;
-  if (score >= 0.7) return ContextRelevance.HIGH;
-  if (score >= 0.5) return ContextRelevance.MEDIUM;
-  if (score >= 0.3) return ContextRelevance.LOW;
+  if (score >= 0.9) {return ContextRelevance.CRITICAL;}
+  if (score >= 0.7) {return ContextRelevance.HIGH;}
+  if (score >= 0.5) {return ContextRelevance.MEDIUM;}
+  if (score >= 0.3) {return ContextRelevance.LOW;}
   return ContextRelevance.MINIMAL;
 }
 
@@ -261,7 +261,7 @@ export function getRelevanceLevelFromScore(score: number): ContextRelevance {
  * Helper: Check if context item is expired
  */
 export function isContextExpired(item: ContextItem, now: Date = new Date()): boolean {
-  if (!item.expiresAt) return false;
+  if (!item.expiresAt) {return false;}
   return item.expiresAt < now;
 }
 
@@ -270,9 +270,9 @@ export function isContextExpired(item: ContextItem, now: Date = new Date()): boo
  */
 export function getTimeOfDay(date: Date): 'morning' | 'afternoon' | 'evening' | 'night' {
   const hours = date.getHours();
-  if (hours >= 5 && hours < 12) return 'morning';
-  if (hours >= 12 && hours < 17) return 'afternoon';
-  if (hours >= 17 && hours < 21) return 'evening';
+  if (hours >= 5 && hours < 12) {return 'morning';}
+  if (hours >= 12 && hours < 17) {return 'afternoon';}
+  if (hours >= 17 && hours < 21) {return 'evening';}
   return 'night';
 }
 

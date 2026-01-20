@@ -5,24 +5,24 @@
  */
 
 export enum MessageDirection {
-  INBOUND = 'inbound',
-  OUTBOUND = 'outbound',
+  INBOUND = "inbound",
+  OUTBOUND = "outbound",
 }
 
 export enum MessageStatus {
-  PENDING = 'pending',
-  QUEUED = 'queued',
-  SENT = 'sent',
-  DELIVERED = 'delivered',
-  FAILED = 'failed',
-  UNDELIVERED = 'undelivered',
+  PENDING = "pending",
+  QUEUED = "queued",
+  SENT = "sent",
+  DELIVERED = "delivered",
+  FAILED = "failed",
+  UNDELIVERED = "undelivered",
 }
 
 export enum MessagePriority {
-  LOW = 'low',
-  NORMAL = 'normal',
-  HIGH = 'high',
-  URGENT = 'urgent',
+  LOW = "low",
+  NORMAL = "normal",
+  HIGH = "high",
+  URGENT = "urgent",
 }
 
 /**
@@ -188,7 +188,11 @@ export interface ISmsProvider {
   /**
    * Validate webhook signature/authenticity
    */
-  validateWebhook(payload: Record<string, unknown>, signature: string): boolean;
+  validateWebhook(
+    payload: Record<string, unknown>,
+    signature: string,
+    url: string
+  ): boolean;
 
   /**
    * Get provider capabilities
@@ -199,18 +203,21 @@ export interface ISmsProvider {
 /**
  * Helper: Chunk long message into SMS segments
  */
-export function chunkMessage(message: string, maxLength: number = 160): string[] {
+export function chunkMessage(
+  message: string,
+  maxLength: number = 160
+): string[] {
   if (message.length <= maxLength) {
     return [message];
   }
 
   const chunks: string[] = [];
-  const words = message.split(' ');
-  let currentChunk = '';
+  const words = message.split(" ");
+  let currentChunk = "";
 
   for (const word of words) {
     if (currentChunk.length + word.length + 1 <= maxLength) {
-      currentChunk += (currentChunk ? ' ' : '') + word;
+      currentChunk += (currentChunk ? " " : "") + word;
     } else {
       if (currentChunk) {
         chunks.push(currentChunk);
@@ -231,25 +238,25 @@ export function chunkMessage(message: string, maxLength: number = 160): string[]
  */
 export function formatPhoneNumber(phone: string): string {
   // Remove all non-digit characters
-  const digits = phone.replace(/\D/g, '');
+  const digits = phone.replace(/\D/g, "");
 
   // If it starts with 1 and has 11 digits, it's already E.164-ish
-  if (digits.length === 11 && digits.startsWith('1')) {
-    return '+' + digits;
+  if (digits.length === 11 && digits.startsWith("1")) {
+    return "+" + digits;
   }
 
   // If it has 10 digits, assume US number and add +1
   if (digits.length === 10) {
-    return '+1' + digits;
+    return "+1" + digits;
   }
 
   // If it already has a + and looks like E.164, return as-is
-  if (phone.startsWith('+')) {
+  if (phone.startsWith("+")) {
     return phone;
   }
 
   // Otherwise, add + prefix
-  return '+' + digits;
+  return "+" + digits;
 }
 
 /**
@@ -266,7 +273,8 @@ export function isValidPhoneNumber(phone: string): boolean {
  */
 export function sanitizeMessageBody(body: string): string {
   // Remove control characters except newline and tab
-  return body.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+  // eslint-disable-next-line no-control-regex
+  return body.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "");
 }
 
 /**
@@ -283,9 +291,9 @@ export function isRateLimitExceeded(
   status: SmsRateLimitStatus,
   config: SmsRateLimitConfig
 ): boolean {
-  if (status.sentLastMinute >= config.maxPerMinute) return true;
-  if (status.sentLastHour >= config.maxPerHour) return true;
-  if (status.sentLastDay >= config.maxPerDay) return true;
+  if (status.sentLastMinute >= config.maxPerMinute) { return true; }
+  if (status.sentLastHour >= config.maxPerHour) { return true; }
+  if (status.sentLastDay >= config.maxPerDay) { return true; }
   return false;
 }
 

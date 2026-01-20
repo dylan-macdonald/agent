@@ -4,27 +4,30 @@
  * Handles SMS message sending, receiving, rate limiting, and queuing
  */
 
-import { Pool } from 'pg';
+import { Pool } from "pg";
+
+import { encrypt, decrypt } from "../security/encryption.js";
+import { NotFoundError, ValidationError } from "../types/index.js";
 import {
-  SmsMessage,
+  ISmsProvider,
   SendSmsInput,
   MessageDirection,
   MessageStatus,
   MessagePriority,
+  SmsMessage,
   SmsSearchQuery,
   SmsStats,
   SmsRateLimitConfig,
   SmsRateLimitStatus,
-  ISmsProvider,
-  SmsWebhookPayload,
   isValidPhoneNumber,
   sanitizeMessageBody,
   isRateLimitExceeded,
   getNextAvailableTime,
   chunkMessage,
-} from '../types/sms.js';
-import { NotFoundError, ValidationError } from '../types/index.js';
-import { logger } from '../utils/logger.js';
+} from "../types/sms.js";
+import { logger } from "../utils/logger.js";
+
+import { SmsQueueService } from "./sms-queue.js";
 
 export class SmsService {
   private rateLimitConfig: SmsRateLimitConfig = {
@@ -36,7 +39,8 @@ export class SmsService {
 
   constructor(
     private db: Pool,
-    private provider: ISmsProvider
+    private provider: ISmsProvider,
+    private queue?: SmsQueueService
   ) {}
 
   // ==========================================================================
@@ -56,14 +60,17 @@ export class SmsService {
     const sanitizedBody = sanitizeMessageBody(input.body);
 
     if (!sanitizedBody || sanitizedBody.trim().length === 0) {
-      throw new ValidationError('Message body cannot be empty');
+      throw new ValidationError("Message body cannot be empty");
     }
 
     // Check rate limits
     const rateLimitStatus = await this.getRateLimitStatus(input.userId);
 
     if (isRateLimitExceeded(rateLimitStatus, this.rateLimitConfig)) {
-      const nextAvailable = getNextAvailableTime(rateLimitStatus, this.rateLimitConfig);
+      const nextAvailable = getNextAvailableTime(
+        rateLimitStatus,
+        this.rateLimitConfig
+      );
 
       throw new ValidationError(
         `Rate limit exceeded. Next available time: ${nextAvailable.toISOString()}`
@@ -80,15 +87,43 @@ export class SmsService {
       toNumber: input.toNumber,
       body: sanitizedBody,
       priority: input.priority || MessagePriority.NORMAL,
+      status: this.queue ? MessageStatus.QUEUED : MessageStatus.PENDING,
     });
 
-    // Send via provider
+    // If queue is available, add to queue and return
+    if (this.queue) {
+      try {
+        await this.queue.addMessage({
+          ...input,
+          body: sanitizedBody,
+          messageId: message.id,
+        });
+
+        // Update rate limit immediately (optimistic)
+        await this.incrementRateLimit(input.userId);
+
+        return await this.getMessageById(message.id);
+      } catch (error) {
+        logger.error(
+          `Failed to add message ${message.id} to queue: ${(error as Error).message}`
+        );
+        // Fall back to synchronous sending if queue fails?
+        // Or just fail. Better to fail and let user retry.
+        await this.updateMessageStatus(message.id, {
+          status: MessageStatus.FAILED,
+          errorMessage: `Queue failure: ${(error as Error).message}`,
+        });
+        throw error;
+      }
+    }
+
+    // Send via provider (synchronous fallback)
     try {
       const sent = await this.provider.sendMessage({
         userId: input.userId,
         toNumber: input.toNumber,
         body: sanitizedBody,
-        ...(input.priority && { priority: input.priority }),
+        ...(input.priority !== undefined && { priority: input.priority }),
       });
 
       const providerId = sent.providerId;
@@ -129,7 +164,7 @@ export class SmsService {
 
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i];
-      const prefix = chunks.length > 1 ? `(${i + 1}/${chunks.length}) ` : '';
+      const prefix = chunks.length > 1 ? `(${i + 1}/${chunks.length}) ` : "";
 
       const message = await this.sendMessage({
         ...input,
@@ -149,13 +184,29 @@ export class SmsService {
   /**
    * Process incoming SMS webhook
    */
-  async processIncomingMessage(webhookPayload: SmsWebhookPayload): Promise<SmsMessage> {
+  async processIncomingMessage(
+    payload: Record<string, unknown>,
+    signature?: string,
+    url?: string
+  ): Promise<SmsMessage> {
+    // Validate if signature and url are provided
+    if (signature && url) {
+      const isValid = this.provider.validateWebhook(payload, signature, url);
+      if (!isValid) {
+        throw new ValidationError("Invalid webhook signature");
+      }
+    }
+
+    const webhookPayload = this.provider.parseWebhook(payload);
+
     // Find user by phone number
     const userId = await this.findUserByPhoneNumber(webhookPayload.toNumber);
 
     if (!userId) {
-      logger.warn(`Received SMS from unknown number: ${webhookPayload.fromNumber}`);
-      throw new NotFoundError('User not found for phone number');
+      logger.warn(
+        `Received SMS from unknown number: ${webhookPayload.fromNumber}`
+      );
+      throw new NotFoundError("User not found for phone number");
     }
 
     const providerId = webhookPayload.messageId;
@@ -173,7 +224,9 @@ export class SmsService {
       status: MessageStatus.DELIVERED,
     });
 
-    logger.info(`Received SMS from ${webhookPayload.fromNumber} for user ${userId}`);
+    logger.info(
+      `Received SMS from ${webhookPayload.fromNumber} for user ${userId}`
+    );
 
     return message;
   }
@@ -196,8 +249,9 @@ export class SmsService {
     providerName?: string;
     status?: MessageStatus;
   }): Promise<SmsMessage> {
-    const direction = data.direction || MessageDirection.OUTBOUND;
-    const status = data.status || MessageStatus.PENDING;
+    const direction = data.direction ?? MessageDirection.OUTBOUND;
+    const status = data.status ?? MessageStatus.PENDING;
+    const encryptedBody = encrypt(data.body);
 
     const query = `
       INSERT INTO sms_messages
@@ -212,7 +266,7 @@ export class SmsService {
       direction,
       data.fromNumber,
       data.toNumber,
-      data.body,
+      encryptedBody,
       status,
       data.priority,
       data.providerId || null,
@@ -234,7 +288,7 @@ export class SmsService {
     const result = await this.db.query(query, [id]);
 
     if (result.rows.length === 0) {
-      throw new NotFoundError('SMS message');
+      throw new NotFoundError("SMS message");
     }
 
     return this.mapRowToMessage(result.rows[0]);
@@ -288,13 +342,13 @@ export class SmsService {
       values.push(updates.deliveredAt);
     }
 
-    if (updateFields.length === 0) return;
+    if (updateFields.length === 0) {return;}
 
     values.push(id);
 
     const query = `
       UPDATE sms_messages
-      SET ${updateFields.join(', ')}, updated_at = NOW()
+      SET ${updateFields.join(", ")}, updated_at = NOW()
       WHERE id = $${paramIndex}
     `;
 
@@ -305,7 +359,7 @@ export class SmsService {
    * Search messages
    */
   async searchMessages(query: SmsSearchQuery): Promise<SmsMessage[]> {
-    const conditions: string[] = ['user_id = $1'];
+    const conditions: string[] = ["user_id = $1"];
     const values: unknown[] = [query.userId];
     let paramIndex = 2;
 
@@ -329,12 +383,12 @@ export class SmsService {
       values.push(query.toDate);
     }
 
-    const limit = query.limit || 50;
-    const offset = query.offset || 0;
+    const limit = query.limit ?? 50;
+    const offset = query.offset ?? 0;
 
     const sql = `
       SELECT * FROM sms_messages
-      WHERE ${conditions.join(' AND ')}
+      WHERE ${conditions.join(" AND ")}
       ORDER BY created_at DESC
       LIMIT $${paramIndex++} OFFSET $${paramIndex}
     `;
@@ -404,7 +458,9 @@ export class SmsService {
   /**
    * Get rate limit status for user
    */
-  private async getRateLimitStatus(userId: string): Promise<SmsRateLimitStatus> {
+  private async getRateLimitStatus(
+    userId: string
+  ): Promise<SmsRateLimitStatus> {
     const now = new Date();
     const oneMinuteAgo = new Date(now.getTime() - 60 * 1000);
     const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
@@ -442,7 +498,10 @@ export class SmsService {
     status.isLimited = isRateLimitExceeded(status, this.rateLimitConfig);
 
     if (status.isLimited) {
-      status.nextAvailableAt = getNextAvailableTime(status, this.rateLimitConfig);
+      status.nextAvailableAt = getNextAvailableTime(
+        status,
+        this.rateLimitConfig
+      );
     }
 
     return status;
@@ -472,7 +531,7 @@ export class SmsService {
     const result = await this.db.query(query, [userId]);
 
     if (result.rows.length === 0) {
-      throw new NotFoundError('User');
+      throw new NotFoundError("User");
     }
 
     return result.rows[0].phone_number;
@@ -481,7 +540,9 @@ export class SmsService {
   /**
    * Find user by phone number
    */
-  private async findUserByPhoneNumber(phoneNumber: string): Promise<string | null> {
+  private async findUserByPhoneNumber(
+    phoneNumber: string
+  ): Promise<string | null> {
     const query = `
       SELECT id FROM users
       WHERE phone_number = $1 AND active = true
@@ -497,11 +558,26 @@ export class SmsService {
    */
   private mapRowToMessage(row: Record<string, unknown>): SmsMessage {
     const sentAt = row.sent_at ? (row.sent_at as Date) : undefined;
-    const deliveredAt = row.delivered_at ? (row.delivered_at as Date) : undefined;
-    const providerId = row.provider_id ? (row.provider_id as string) : undefined;
-    const providerName = row.provider_name ? (row.provider_name as string) : undefined;
+    const deliveredAt = row.delivered_at
+      ? (row.delivered_at as Date)
+      : undefined;
+    const providerId = row.provider_id
+      ? (row.provider_id as string)
+      : undefined;
+    const providerName = row.provider_name
+      ? (row.provider_name as string)
+      : undefined;
     const errorCode = row.error_code ? (row.error_code as string) : undefined;
-    const errorMessage = row.error_message ? (row.error_message as string) : undefined;
+    const errorMessage = row.error_message
+      ? (row.error_message as string)
+      : undefined;
+
+    let body = row.body as string;
+    try {
+      body = decrypt(body);
+    } catch (error) {
+      logger.error(`Failed to decrypt message body for message ${row.id}`);
+    }
 
     return {
       id: row.id as string,
@@ -509,9 +585,10 @@ export class SmsService {
       direction: row.direction as MessageDirection,
       fromNumber: row.from_number as string,
       toNumber: row.to_number as string,
-      body: row.body as string,
+      body,
       status: row.status as MessageStatus,
       priority: row.priority as MessagePriority,
+
       ...(providerId && { providerId }),
       ...(providerName && { providerName }),
       ...(errorCode && { errorCode }),

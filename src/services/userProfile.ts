@@ -4,8 +4,11 @@
  * Handles all user profile and preference management with caching
  */
 
-import { Pool } from 'pg';
 import Redis from 'ioredis';
+import { Pool } from 'pg';
+
+import { encrypt, decrypt } from '../security/encryption.js';
+import { NotFoundError, ValidationError } from '../types/index.js';
 import {
   User,
   CreateUserInput,
@@ -18,8 +21,6 @@ import {
   getPreferenceSchema,
   PREFERENCE_SCHEMAS,
 } from '../types/user.js';
-import { NotFoundError, ValidationError } from '../types/index.js';
-import { encrypt, decrypt } from '../security/encryption.js';
 import { logger } from '../utils/logger.js';
 
 export class UserProfileService {

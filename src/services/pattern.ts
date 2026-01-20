@@ -5,6 +5,8 @@
  */
 
 import { Pool } from 'pg';
+
+import { NotFoundError } from '../types/index.js';
 import {
   Pattern,
   PatternType,
@@ -29,7 +31,6 @@ import {
   isWeekend,
   groupTimesByDayOfWeek,
 } from '../types/pattern.js';
-import { NotFoundError } from '../types/index.js';
 import { logger } from '../utils/logger.js';
 
 export class PatternService {
@@ -907,7 +908,7 @@ export class PatternService {
     logs: ActivityLog[]
   ): 'low' | 'medium' | 'high' | undefined {
     const intensities = logs.filter((log) => log.intensity).map((log) => log.intensity!);
-    if (intensities.length === 0) return undefined;
+    if (intensities.length === 0) {return undefined;}
 
     const counts: Record<string, number> = {};
     intensities.forEach((intensity) => {
@@ -931,7 +932,7 @@ export class PatternService {
    */
   private getMostCommonLocation(logs: ActivityLog[]): string | undefined {
     const locations = logs.filter((log) => log.location).map((log) => log.location!);
-    if (locations.length === 0) return undefined;
+    if (locations.length === 0) {return undefined;}
 
     const counts: Record<string, number> = {};
     locations.forEach((location) => {

@@ -9,6 +9,8 @@
 import { getConfig } from "@/config/index.js";
 import { logger } from "@/utils/logger.js";
 
+import { App } from "./app.js";
+
 async function main(): Promise<void> {
   logger.info("Starting AI Personal Assistant...");
 
@@ -19,32 +21,22 @@ async function main(): Promise<void> {
       port: config.port,
     });
 
-    // Placeholder for async initialization that will be added
-    await Promise.resolve();
-
-    // TODO: Initialize database connection
-    // TODO: Initialize Redis connection
-    // TODO: Initialize API server
-    // TODO: Initialize scheduler service
-    // TODO: Initialize SMS integration
-
-    logger.info(
-      `AI Personal Assistant running on ${config.host}:${config.port}`
-    );
+    const app = new App(config);
+    await app.start();
 
     // Keep process running
-    process.on("SIGINT", () => {
-      logger.info("Received SIGINT, shutting down gracefully...");
+    const shutdown = (): void => {
+      logger.info("Received signal, shutting down gracefully...");
+      void app.shutdown();
       process.exit(0);
-    });
+    };
 
-    process.on("SIGTERM", () => {
-      logger.info("Received SIGTERM, shutting down gracefully...");
-      process.exit(0);
-    });
+    process.on("SIGINT", shutdown);
+    process.on("SIGTERM", shutdown);
   } catch (error) {
     logger.error("Failed to start application", {
       error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
     });
     process.exit(1);
   }

@@ -4,8 +4,11 @@
  * Handles all memory storage, retrieval, and management operations
  */
 
-import { Pool } from 'pg';
 import Redis from 'ioredis';
+import { Pool } from 'pg';
+
+import { encrypt, decrypt } from '../security/encryption.js';
+import { NotFoundError, ValidationError } from '../types/index.js';
 import {
   Memory,
   MemoryType,
@@ -19,8 +22,6 @@ import {
   MemoryStats,
   calculateExpirationDate,
 } from '../types/memory.js';
-import { NotFoundError, ValidationError } from '../types/index.js';
-import { encrypt, decrypt } from '../security/encryption.js';
 import { logger } from '../utils/logger.js';
 
 export class MemoryService {

@@ -7,30 +7,33 @@
 
 ## INDEX
 
-| Section | Description | Jump Link |
-|---------|-------------|-----------|
-| **1. Project Overview** | Mission, vision, and scope | [Go](#1-project-overview) |
-| **2. Architecture** | System design and components | [Go](#2-architecture) |
-| **3. Security Requirements** | Privacy and data protection standards | [Go](#3-security-requirements) |
-| **4. Code Standards** | Quality, consistency, and style guidelines | [Go](#4-code-standards) |
-| **5. Frontend Guidelines** | UI/UX design standards | [Go](#5-frontend-guidelines) |
-| **6. Testing Requirements** | Comprehensive testing at every phase | [Go](#6-testing-requirements) |
-| **7. Agent Guidelines** | How AI agents should operate on this project | [Go](#7-agent-guidelines) |
-| **8. Troubleshooting & Recovery** | When stuck, how to reset and recover | [Go](#8-troubleshooting--recovery) |
-| **9. Notes System** | How to use the notes/ folder | [Go](#9-notes-system) |
-| **10. Commands & Scripts** | Common commands for development | [Go](#10-commands--scripts) |
-| **11. File Structure** | Project directory layout | [Go](#11-file-structure) |
-| **12. Change Log Protocol** | How to log changes to documentation | [Go](#12-change-log-protocol) |
+| Section                           | Description                                  | Jump Link                          |
+| --------------------------------- | -------------------------------------------- | ---------------------------------- |
+| **1. Project Overview**           | Mission, vision, and scope                   | [Go](#1-project-overview)          |
+| **2. Architecture**               | System design and components                 | [Go](#2-architecture)              |
+| **3. Security Requirements**      | Privacy and data protection standards        | [Go](#3-security-requirements)     |
+| **4. Code Standards**             | Quality, consistency, and style guidelines   | [Go](#4-code-standards)            |
+| **5. Frontend Guidelines**        | UI/UX design standards                       | [Go](#5-frontend-guidelines)       |
+| **6. Testing Requirements**       | Comprehensive testing at every phase         | [Go](#6-testing-requirements)      |
+| **7. Agent Guidelines**           | How AI agents should operate on this project | [Go](#7-agent-guidelines)          |
+| **8. Troubleshooting & Recovery** | When stuck, how to reset and recover         | [Go](#8-troubleshooting--recovery) |
+| **9. Notes System**               | How to use the notes/ folder                 | [Go](#9-notes-system)              |
+| **10. Commands & Scripts**        | Common commands for development              | [Go](#10-commands--scripts)        |
+| **11. File Structure**            | Project directory layout                     | [Go](#11-file-structure)           |
+| **12. Change Log Protocol**       | How to log changes to documentation          | [Go](#12-change-log-protocol)      |
 
 ---
 
 ## 1. Project Overview
 
 ### Mission
+
 Build a comprehensive AI-powered personal assistant that acts as a proactive digital companion - handling scheduling, reminders, health tracking, goal management, and daily task support with minimal user intervention.
 
 ### Vision
+
 Create a genuine, daily-use tool that combines the capabilities of:
+
 - **Personal Assistant**: Scheduling, planning, reminders, task management
 - **Digital Trainer/Diet Coach**: Health tracking, exercise guidance, nutrition advice
 - **Physical Therapist Guide**: Movement reminders, posture checks, stretch recommendations
@@ -39,18 +42,19 @@ Create a genuine, daily-use tool that combines the capabilities of:
 
 ### Core Capabilities
 
-| Capability | Description |
-|------------|-------------|
-| **Memory System** | Remember user preferences, history, patterns, and personal details |
-| **Proactive Communication** | Self-initiating reminders and check-ins without user prompting |
-| **SMS/Text Integration** | Send reminders, receive responses, two-way communication |
-| **Remote PC Access** | Control home computer while user is away |
-| **Sleep/Wake Logging** | Track and log daily rhythms automatically |
-| **Goal Tracking** | Monitor progress on projects, habits, and long-term objectives |
-| **Health Monitoring** | Diet logging, exercise tracking, wellness reminders |
-| **Context Awareness** | Understand user's schedule, location, and current priorities |
+| Capability                  | Description                                                        |
+| --------------------------- | ------------------------------------------------------------------ |
+| **Memory System**           | Remember user preferences, history, patterns, and personal details |
+| **Proactive Communication** | Self-initiating reminders and check-ins without user prompting     |
+| **SMS/Text Integration**    | Send reminders, receive responses, two-way communication           |
+| **Remote PC Access**        | Control home computer while user is away                           |
+| **Sleep/Wake Logging**      | Track and log daily rhythms automatically                          |
+| **Goal Tracking**           | Monitor progress on projects, habits, and long-term objectives     |
+| **Health Monitoring**       | Diet logging, exercise tracking, wellness reminders                |
+| **Context Awareness**       | Understand user's schedule, location, and current priorities       |
 
 ### Design Philosophy
+
 - **No Shortcuts**: Every feature built properly, no half-measures
 - **Security First**: All data in transit must be encrypted and protected
 - **Genuine Utility**: Real tool for daily use, not a demo or prototype
@@ -85,6 +89,7 @@ Create a genuine, daily-use tool that combines the capabilities of:
 ```
 
 ### Technology Stack (Recommended)
+
 - **Backend**: Node.js/TypeScript or Python with FastAPI
 - **Frontend**: React + TypeScript + Tailwind CSS
 - **Database**: PostgreSQL for structured data, Redis for caching
@@ -103,24 +108,27 @@ Create a genuine, daily-use tool that combines the capabilities of:
 
 ### Security Standards
 
-| Requirement | Implementation |
-|-------------|----------------|
-| **Data at Rest** | AES-256 encryption for all stored personal data |
-| **Data in Transit** | TLS 1.3 minimum, certificate pinning where applicable |
-| **Authentication** | Multi-factor authentication, secure token rotation |
-| **API Security** | Rate limiting, input validation, OWASP Top 10 compliance |
+| Requirement            | Implementation                                             |
+| ---------------------- | ---------------------------------------------------------- |
+| **Data at Rest**       | AES-256 encryption for all stored personal data            |
+| **Data in Transit**    | TLS 1.3 minimum, certificate pinning where applicable      |
+| **Authentication**     | Multi-factor authentication, secure token rotation         |
+| **API Security**       | Rate limiting, input validation, OWASP Top 10 compliance   |
 | **Secrets Management** | Environment variables, never hardcoded, use vault services |
-| **Audit Logging** | All access to sensitive data must be logged |
-| **Key Rotation** | Regular rotation of encryption keys and API tokens |
+| **Audit Logging**      | All access to sensitive data must be logged                |
+| **Key Rotation**       | Regular rotation of encryption keys and API tokens         |
 
 ### User Alert Protocol
+
 If an agent encounters a security concern that requires user action:
+
 1. **STOP** current operation
 2. **DOCUMENT** the concern clearly
 3. **ALERT** the user with specific required actions
 4. **WAIT** for user confirmation before proceeding
 
 ### Prohibited Actions
+
 - Never store plaintext passwords or sensitive tokens
 - Never transmit data over unencrypted channels
 - Never log sensitive user data (PII, health info, etc.)
@@ -145,35 +153,37 @@ interface UserPreference {
 async function getUserPreferences(userId: string): Promise<UserPreference[]> {
   // Validate input at system boundary
   if (!isValidUserId(userId)) {
-    throw new ValidationError('Invalid user ID format');
+    throw new ValidationError("Invalid user ID format");
   }
 
   return await preferenceRepository.findByUserId(userId);
 }
 
 // BAD: Untyped, unclear, over-commented
-function getPrefs(id) {  // Gets user preferences
+function getPrefs(id) {
+  // Gets user preferences
   // Check if id exists
   if (id) {
     // Return preferences from database
-    return db.query('SELECT * FROM prefs WHERE user_id = ?', [id]);  // SQL query
+    return db.query("SELECT * FROM prefs WHERE user_id = ?", [id]); // SQL query
   }
 }
 ```
 
 ### Style Rules
 
-| Rule | Standard |
-|------|----------|
-| **Language** | TypeScript preferred, strict mode enabled |
-| **Formatting** | Prettier with project config |
-| **Linting** | ESLint with recommended + strict rules |
-| **Naming** | camelCase functions/variables, PascalCase types/classes |
-| **Imports** | Absolute imports from `@/` prefix |
-| **Error Handling** | Typed errors, no silent catches |
-| **Comments** | Only where logic isn't self-evident |
+| Rule               | Standard                                                |
+| ------------------ | ------------------------------------------------------- |
+| **Language**       | TypeScript preferred, strict mode enabled               |
+| **Formatting**     | Prettier with project config                            |
+| **Linting**        | ESLint with recommended + strict rules                  |
+| **Naming**         | camelCase functions/variables, PascalCase types/classes |
+| **Imports**        | Absolute imports from `@/` prefix                       |
+| **Error Handling** | Typed errors, no silent catches                         |
+| **Comments**       | Only where logic isn't self-evident                     |
 
 ### Avoid Over-Engineering
+
 - Don't add features beyond what's requested
 - Don't create abstractions for one-time operations
 - Don't add error handling for impossible scenarios
@@ -181,6 +191,7 @@ function getPrefs(id) {  // Gets user preferences
 - Three similar lines of code > premature abstraction
 
 ### Git Practices
+
 - Meaningful commit messages describing WHY
 - One logical change per commit
 - Never commit secrets or sensitive data
@@ -193,27 +204,32 @@ function getPrefs(id) {  // Gets user preferences
 > Standards for creating distinctive, production-grade interfaces that avoid generic aesthetics.
 
 ### Design Philosophy
+
 Create interfaces that are memorable, intentional, and contextually appropriate. Avoid generic, cookie-cutter designs.
 
 ### Before Coding, Define:
+
 1. **Purpose**: What problem does this interface solve? Who uses it?
 2. **Tone**: Choose a direction - minimalist, maximalist, retro-futuristic, organic, luxury, playful, editorial, brutalist, art deco, soft/pastel, industrial, etc.
 3. **Constraints**: Framework, performance, accessibility requirements
 4. **Differentiation**: What makes this UNFORGETTABLE?
 
 ### Typography
+
 - Choose beautiful, unique, interesting fonts
 - **AVOID**: Arial, Inter, Roboto, system fonts (generic choices)
 - Pair distinctive display fonts with refined body fonts
 - Let typography carry personality
 
 ### Color & Theme
+
 - Commit to a cohesive aesthetic
 - Use CSS variables for consistency
 - Dominant colors with sharp accents > evenly-distributed palettes
 - **AVOID**: Purple gradients on white (overused AI aesthetic)
 
 ### Motion & Animation
+
 - Use animations for delight and feedback
 - Prioritize CSS-only solutions for HTML
 - Use animation libraries (Framer Motion, GSAP) for complex interactions
@@ -221,6 +237,7 @@ Create interfaces that are memorable, intentional, and contextually appropriate.
 - One well-orchestrated animation > scattered micro-interactions
 
 ### Spatial Composition
+
 - Unexpected layouts
 - Asymmetry and overlap
 - Diagonal flow
@@ -228,18 +245,22 @@ Create interfaces that are memorable, intentional, and contextually appropriate.
 - Generous negative space OR controlled density
 
 ### Backgrounds & Visual Details
+
 - Create atmosphere and depth (not solid colors)
 - Contextual effects matching the aesthetic
 - Techniques: gradient meshes, noise textures, geometric patterns, layered transparencies, dramatic shadows, grain overlays
 
 ### What NOT to Do
+
 - Generic font families (Inter, Roboto, Arial)
 - Clichéd color schemes
 - Predictable layouts and patterns
 - Cookie-cutter design without context
 
 ### Implementation Principle
+
 Match complexity to vision:
+
 - **Maximalist** = elaborate code, extensive animations
 - **Minimalist** = restraint, precision, careful spacing
 
@@ -248,6 +269,7 @@ Match complexity to vision:
 ## 6. Testing Requirements
 
 ### Testing Philosophy
+
 Every feature must be testable in isolation before integration. Testing is not optional.
 
 ### Test Pyramid
@@ -264,14 +286,15 @@ Every feature must be testable in isolation before integration. Testing is not o
 
 ### Requirements by Phase
 
-| Phase | Minimum Test Coverage |
-|-------|----------------------|
-| Core Services | 90%+ unit test coverage |
-| API Endpoints | Integration tests for all endpoints |
-| User Flows | E2E tests for critical paths |
+| Phase             | Minimum Test Coverage               |
+| ----------------- | ----------------------------------- |
+| Core Services     | 90%+ unit test coverage             |
+| API Endpoints     | Integration tests for all endpoints |
+| User Flows        | E2E tests for critical paths        |
 | Security Features | 100% coverage + penetration testing |
 
 ### Test Standards
+
 - Colocate unit tests: `*.test.ts` or `__tests__/` folder
 - Integration tests in `tests/integration/`
 - E2E tests in `tests/e2e/`
@@ -280,6 +303,7 @@ Every feature must be testable in isolation before integration. Testing is not o
 - Security features require additional fuzzing
 
 ### Before Merging
+
 - [ ] All tests pass
 - [ ] No decrease in coverage
 - [ ] New code has corresponding tests
@@ -302,6 +326,7 @@ Every feature must be testable in isolation before integration. Testing is not o
 ### Context Management
 
 **For All AI Models:**
+
 - Reference this AGENTS.md file for project standards
 - Clear/reset context when it becomes cluttered or confused
 - For large tasks: document progress in notes, reset context, continue
@@ -309,6 +334,7 @@ Every feature must be testable in isolation before integration. Testing is not o
 
 **Context Reset Protocol:**
 When context becomes overwhelming:
+
 1. Save current progress to `notes/` folder
 2. Commit any working code to git
 3. Clear your context/start new session
@@ -329,6 +355,7 @@ git push origin feature/your-feature-name
 ```
 
 ### Inter-Agent Communication
+
 - Use `notes/` folder for persistent observations
 - Always check for existing notes before starting new work
 - Document blockers and decisions for future agents
@@ -337,14 +364,17 @@ git push origin feature/your-feature-name
 ### Model-Specific Notes
 
 **For Claude models:**
+
 - Use `/clear` command to reset context
 - Reference CLAUDE.md for Claude-specific tooling
 
 **For GPT models:**
+
 - Start new conversation threads to reset context
 - Be explicit about file paths and current state
 
 **For Open-source models:**
+
 - Document current state frequently in notes
 - Keep tasks small and well-defined
 
@@ -355,12 +385,14 @@ git push origin feature/your-feature-name
 ### When You're Stuck
 
 #### Level 1: Context Refresh
+
 ```
 Problem: Confusion, looping, or unclear state
 Solution: Reset/clear context, re-read AGENTS.md, restart task
 ```
 
 #### Level 2: Progress Save & Reset
+
 ```
 Problem: Extended confusion, context overflow
 Solution:
@@ -371,6 +403,7 @@ Solution:
 ```
 
 #### Level 3: Escalate to User
+
 ```
 Problem: Blocked by external factors, security concerns, unclear requirements
 Solution:
@@ -381,40 +414,47 @@ Solution:
 
 ### Common Issues & Solutions
 
-| Issue | Solution |
-|-------|----------|
-| Terminal hanging | Cancel operation, check for prompts requiring input |
-| Infinite loops | Break task into smaller steps, commit working code |
-| Context overflow | Document progress, reset context, continue in new session |
-| Tests failing | Read error carefully, fix one at a time, don't batch |
-| Unclear requirements | Ask user, don't assume |
-| Security uncertainty | Stop and alert user |
+| Issue                | Solution                                                  |
+| -------------------- | --------------------------------------------------------- |
+| Terminal hanging     | Cancel operation, check for prompts requiring input       |
+| Infinite loops       | Break task into smaller steps, commit working code        |
+| Context overflow     | Document progress, reset context, continue in new session |
+| Tests failing        | Read error carefully, fix one at a time, don't batch      |
+| Unclear requirements | Ask user, don't assume                                    |
+| Security uncertainty | Stop and alert user                                       |
 
 ### Escape Patterns for Stuck States
 
 **Pattern 1: Simplify**
+
 - If a complex approach isn't working, try the simplest possible solution
 - Remove complexity until something works, then add back carefully
 
 **Pattern 2: Isolate**
+
 - Create a minimal reproduction of the problem
 - Test in isolation before integrating
 
 **Pattern 3: Document and Step Away**
+
 - Write down exactly what you've tried
 - Save to notes, reset context, approach fresh
 
 **Pattern 4: Ask for Help**
+
 - Clearly state: what you're trying to do, what you've tried, what's happening
 - Request specific guidance from the user
 
 ### Terminal/Environment Issues
+
 If output becomes corrupted:
+
 - Check for special terminal themes interfering with output
 - Use `export TERM=dumb` for clean output
 - Reset terminal: `reset` or `tput reset`
 
 ### Recovery Protocol
+
 1. `git status` - Check current state
 2. `git stash` - Save uncommitted work if needed
 3. `git log --oneline -10` - Review recent history
@@ -425,6 +465,7 @@ If output becomes corrupted:
 ## 9. Notes System
 
 ### Purpose
+
 The `notes/` folder provides persistent storage for agent observations, decisions, and work-in-progress thoughts that need to survive context resets.
 
 ### Usage Rules
@@ -436,6 +477,7 @@ The `notes/` folder provides persistent storage for agent observations, decision
    - Always include agent name and timestamp at the top
 
 2. **Note Content**
+
    ```markdown
    # Topic Title
 
@@ -444,13 +486,16 @@ The `notes/` folder provides persistent storage for agent observations, decision
    **Status**: In Progress | Complete | Blocked
 
    ## Content
+
    [Your observations, decisions, or work-in-progress]
 
    ## Next Steps (if applicable)
+
    [What needs to happen next]
    ```
 
 3. **Cleanup Rule**
+
    > **CRITICAL**: When a note is no longer needed (task complete, info incorporated elsewhere), DELETE IT. No stale notes.
 
 4. **Reading Notes**
@@ -458,6 +503,7 @@ The `notes/` folder provides persistent storage for agent observations, decision
    - Previous agents may have left important context
 
 ### See Also
+
 - `notes/notes.md` - Detailed notes system documentation
 
 ---
@@ -465,6 +511,7 @@ The `notes/` folder provides persistent storage for agent observations, decision
 ## 10. Commands & Scripts
 
 ### Development Commands
+
 ```bash
 # Install dependencies
 npm install
@@ -492,6 +539,7 @@ npm run typecheck
 ```
 
 ### Git Commands
+
 ```bash
 # Check status
 git status
@@ -510,6 +558,7 @@ git pull origin main
 ```
 
 ### Useful Shortcuts
+
 ```bash
 # Run single test file
 npm test -- path/to/file.test.ts
@@ -571,20 +620,23 @@ Any agent modifying TODO.md, AGENTS.md, or other project documentation must:
 
 ```markdown
 ---
+
 ## Change Log
 
-| Timestamp | Agent | Summary |
-|-----------|-------|---------|
-| 2025-01-18T10:00:00Z | Claude | Initial document creation |
-| 2025-01-18T14:30:00Z | GPT-4 | Added Phase 3 testing details |
+| Timestamp            | Agent  | Summary                       |
+| -------------------- | ------ | ----------------------------- |
+| 2025-01-18T10:00:00Z | Claude | Initial document creation     |
+| 2025-01-18T14:30:00Z | GPT-4  | Added Phase 3 testing details |
 ```
 
 ### This File's Change Log
+
 > Note: AGENTS.md should rarely need modification. Log entries here only when explicitly asked to update.
 
 ---
+
 ## Change Log
 
-| Timestamp | Agent | Summary |
-|-----------|-------|---------|
+| Timestamp            | Agent             | Summary                                            |
+| -------------------- | ----------------- | -------------------------------------------------- |
 | 2025-01-18T23:56:00Z | Claude (Opus 4.5) | Initial document creation - model-agnostic version |

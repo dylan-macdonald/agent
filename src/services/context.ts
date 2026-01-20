@@ -1,18 +1,17 @@
 /**
  * Context Service
  *
- * Aggregates context from multiple sources (memory, patterns, user state)
- * and provides context-aware querying capabilities
+ * Aggregates context from memory, patterns, user state,
+ * and other sources to enable context-aware AI interactions
  */
 
-import { Pool } from 'pg';
-import { randomUUID } from 'crypto';
+import type { Pool } from "pg";
+
 import {
   ContextItem,
   ContextCategory,
   ContextRelevance,
   ContextTimeWindow,
-  ContextMetadata,
   UserContext,
   ContextSummary,
   ContextAggregationOptions,
@@ -21,19 +20,29 @@ import {
   UpdateContextInput,
   getTimeWindowForDate,
   getRelevanceLevelFromScore,
-  isContextExpired,
-  getTimeOfDay,
-  calculateRecencyScore,
   getDefaultExpiry,
-  detectPatternDeviation,
-  StateContextData,
-  EnvironmentContextData,
-} from '../types/context.js';
-import { MemoryService } from './memory.js';
-import { PatternService } from './pattern.js';
-import { MemoryType, MemorySearchQuery } from '../types/memory.js';
-import { NotFoundError } from '../types/index.js';
-import { logger } from '../utils/logger.js';
+  calculateRecencyScore,
+} from "../types/context.js";
+import { NotFoundError } from "../types/index.js";
+import { MemoryImportance } from "../types/memory.js";
+
+import type { MemoryService } from "./memory.js";
+import type { PatternService } from "./pattern.js";
+
+type ContextItemWithoutExpiresAt = Omit<ContextItem, "expiresAt">;
+
+interface ContextItemRow {
+  id: string;
+  user_id: string;
+  category: string;
+  relevance: string;
+  relevance_score: string;
+  time_window: string;
+  timestamp: Date;
+  expires_at: Date | null;
+  metadata: string;
+  created_at: Date;
+}
 
 export class ContextService {
   constructor(
@@ -42,27 +51,26 @@ export class ContextService {
     private patternService: PatternService
   ) {}
 
-  // ==========================================================================
-  // Context CRUD Operations
-  // ==========================================================================
-
   /**
    * Create a new context item
    */
   async createContextItem(input: UpdateContextInput): Promise<ContextItem> {
     const now = new Date();
-    const relevance = input.relevance || ContextRelevance.MEDIUM;
-    const expiresAt = input.expiresAt || getDefaultExpiry(input.category, now);
+    const expiresAt = input.expiresAt ?? getDefaultExpiry(input.category, now);
 
-    // Calculate initial relevance score
-    const relevanceScore = this.getScoreForRelevanceLevel(relevance);
+    const relevance = input.relevance ?? ContextRelevance.MEDIUM;
+    const relevanceScore = this.calculateDefaultRelevance(
+      input.category,
+      input.metadata
+    );
 
     const timeWindow = getTimeWindowForDate(now, now);
 
     const query = `
-      INSERT INTO context_items
-        (user_id, category, relevance, relevance_score, time_window,
-         timestamp, expires_at, metadata)
+      INSERT INTO context_items (
+        user_id, category, relevance, relevance_score, time_window,
+        timestamp, expires_at, metadata
+      )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       RETURNING *
     `;
@@ -78,567 +86,478 @@ export class ContextService {
       JSON.stringify(input.metadata),
     ]);
 
-    return this.mapRowToContextItem(result.rows[0]);
+    if (!result.rows[0]) {
+      throw new Error("Failed to create context item");
+    }
+
+    return this.mapRowToContextItem(result.rows[0] as ContextItemRow);
   }
 
   /**
-   * Get context item by ID
+   * Get a context item by ID
    */
   async getContextItem(id: string): Promise<ContextItem> {
-    const query = `
-      SELECT * FROM context_items
-      WHERE id = $1
-    `;
-
+    const query = "SELECT * FROM context_items WHERE id = $1";
     const result = await this.db.query(query, [id]);
 
     if (result.rows.length === 0) {
-      throw new NotFoundError('Context item');
+      throw new NotFoundError("Context item");
     }
 
-    return this.mapRowToContextItem(result.rows[0]);
+    return this.mapRowToContextItem(result.rows[0] as ContextItemRow);
   }
 
   /**
-   * Update context item relevance score
-   */
-  async updateContextRelevance(
-    id: string,
-    relevanceScore: number,
-    relevance?: ContextRelevance
-  ): Promise<void> {
-    const updates: string[] = ['relevance_score = $2'];
-    const values: unknown[] = [id, relevanceScore];
-    let paramIndex = 3;
-
-    if (relevance) {
-      updates.push(`relevance = $${paramIndex++}`);
-      values.push(relevance);
-    }
-
-    const query = `
-      UPDATE context_items
-      SET ${updates.join(', ')}
-      WHERE id = $1
-    `;
-
-    await this.db.query(query, values);
-  }
-
-  /**
-   * Delete expired context items
+   * Cleanup expired context items for a user
    */
   async cleanupExpiredContext(userId: string): Promise<number> {
+    const now = new Date();
     const query = `
       DELETE FROM context_items
-      WHERE user_id = $1 AND expires_at < NOW()
+      WHERE user_id = $1 AND (expires_at IS NULL OR expires_at < $2)
+      RETURNING id
     `;
 
-    const result = await this.db.query(query, [userId]);
-    const deletedCount = result.rowCount || 0;
-
-    if (deletedCount > 0) {
-      logger.info(`Cleaned up ${deletedCount} expired context items for user ${userId}`);
-    }
-
-    return deletedCount;
+    const result = await this.db.query(query, [userId, now]);
+    return result.rowCount ?? 0;
   }
 
-  // ==========================================================================
-  // Context Aggregation
-  // ==========================================================================
-
   /**
-   * Aggregate full user context from all sources
+   * Aggregate context from all sources
    */
-  async aggregateContext(options: ContextAggregationOptions): Promise<UserContext> {
-    const {
-      userId,
-      timeWindow = ContextTimeWindow.NOW,
-      categories,
-      minRelevance,
-      includeMemories = true,
-      includePatterns = true,
-      maxItems = 100,
-    } = options;
+  async aggregateContext(
+    options: ContextAggregationOptions
+  ): Promise<UserContext> {
+    await this.cleanupExpiredContext(options.userId);
 
-    // Clean up expired context first
-    await this.cleanupExpiredContext(userId);
+    const contextItems: ContextItem[] = [];
 
-    const items: ContextItem[] = [];
-    const now = new Date();
+    if (options.includeMemories ?? true) {
+      const memoryResult = await this.memoryService.searchMemories({
+        userId: options.userId,
+        limit: options.maxItems ?? 20,
+        importance: [MemoryImportance.HIGH, MemoryImportance.CRITICAL],
+      });
 
-    // Get current environment context
-    const envContext = await this.getEnvironmentContext(userId);
-    items.push(envContext);
-
-    // Aggregate from different sources
-    if (includeMemories) {
-      const memoryContexts = await this.getMemoryBasedContext(userId, timeWindow, maxItems);
-      items.push(...memoryContexts);
+      for (const memory of memoryResult.memories) {
+        const memoryContextItem = await this.createContextItem({
+          userId: options.userId,
+          category: ContextCategory.RECENT_ACTIVITY,
+          metadata: {
+            memory: {
+              memoryId: memory.id,
+              memoryType: memory.type,
+              content: memory.content,
+            },
+          },
+          relevance: getRelevanceLevelFromScore(memory.importance / 5),
+        });
+        contextItems.push(memoryContextItem);
+      }
     }
 
-    if (includePatterns) {
-      const patternContexts = await this.getPatternBasedContext(userId);
-      items.push(...patternContexts);
+    if (options.includePatterns ?? true) {
+      const patternQuery = {
+        userId: options.userId,
+      };
+      const patterns = await this.patternService.getPatterns(patternQuery);
+
+      for (const pattern of patterns) {
+        if (!pattern.active) {
+          continue;
+        }
+
+        const patternContextItem = await this.createContextItem({
+          userId: options.userId,
+          category: ContextCategory.PATTERNS,
+          metadata: {
+            pattern: {
+              patternId: pattern.id,
+              patternType: pattern.type,
+              name: pattern.name,
+              confidence: pattern.confidence,
+            },
+          },
+          relevance: getRelevanceLevelFromScore(pattern.confidence),
+        });
+        contextItems.push(patternContextItem);
+      }
     }
 
-    // Get stored context items
-    const storedContexts = await this.getStoredContext(userId, {
-      ...(categories && { categories }),
-      ...(minRelevance && { minRelevance }),
-      ...(timeWindow && { timeWindow }),
-    });
-    items.push(...storedContexts);
+    const storedContextQuery = `
+      SELECT * FROM context_items
+      WHERE user_id = $1
+        AND (expires_at IS NULL OR expires_at > $2)
+      ORDER BY relevance_score DESC, timestamp DESC
+    `;
 
-    // Filter and sort by relevance
-    let filteredItems = items.filter((item) => !isContextExpired(item, now));
+    const storedResult = await this.db.query(storedContextQuery, [
+      options.userId,
+      new Date(),
+    ]);
 
-    if (minRelevance) {
-      const minScore = this.getScoreForRelevanceLevel(minRelevance);
-      filteredItems = filteredItems.filter((item) => item.relevanceScore >= minScore);
+    for (const row of storedResult.rows) {
+      contextItems.push(this.mapRowToContextItem(row as ContextItemRow));
     }
 
-    // Sort by relevance score descending
-    filteredItems.sort((a, b) => b.relevanceScore - a.relevanceScore);
+    let filteredItems = contextItems;
+    if (options.minRelevance) {
+      const minScore = this.getRelevanceScoreValue(options.minRelevance);
+      filteredItems = filteredItems.filter(
+        (item) => item.relevanceScore >= minScore
+      );
+    }
 
-    // Limit results
-    filteredItems = filteredItems.slice(0, maxItems);
+    if (options.categories && options.categories.length > 0) {
+      filteredItems = filteredItems.filter((item) =>
+        options.categories!.includes(item.category)
+      );
+    }
 
-    // Generate summary
-    const summary = this.generateContextSummary(filteredItems);
+    const maxItems = options.maxItems ?? 50;
+    const finalItems = filteredItems.slice(0, maxItems);
+
+    const summary = this.generateSummary(finalItems);
+    const aggregationTimeWindow =
+      options.timeWindow ?? ContextTimeWindow.THIS_WEEK;
 
     return {
-      userId,
-      generatedAt: now,
-      timeWindow,
-      items: filteredItems,
+      userId: options.userId,
+      generatedAt: new Date(),
+      timeWindow: aggregationTimeWindow,
+      items: finalItems,
       summary,
     };
   }
 
   /**
-   * Get environment context (time, day, etc.)
+   * Query context for relevant items
    */
-  private async getEnvironmentContext(_userId: string): Promise<ContextItem> {
-    const now = new Date();
-
-    // Get user timezone (would normally fetch from user profile)
-    const timezone = 'UTC'; // TODO: Get from user profile
-
-    const environmentData: EnvironmentContextData = {
-      timeOfDay: getTimeOfDay(now),
-      dayOfWeek: now.getDay(),
-      isWeekday: now.getDay() >= 1 && now.getDay() <= 5,
-      timezone,
+  async queryContext(query: ContextQuery): Promise<ContextSearchResult[]> {
+    const aggregationOptions: ContextAggregationOptions = {
+      userId: query.userId,
+      maxItems: query.limit ?? 20,
     };
 
-    return {
-      id: randomUUID(),
-      category: ContextCategory.ENVIRONMENT,
-      relevance: ContextRelevance.HIGH,
-      relevanceScore: 0.8,
-      timeWindow: ContextTimeWindow.NOW,
-      timestamp: now,
-      metadata: {
-        environment: environmentData,
-      },
-    };
+    if (query.categories !== undefined) {
+      aggregationOptions.categories = query.categories;
+    }
+
+    if (query.timeWindow !== undefined) {
+      aggregationOptions.timeWindow = query.timeWindow;
+    }
+
+    const context = await this.aggregateContext(aggregationOptions);
+
+    const keywords = query.keywords ?? this.extractKeywords(query.query ?? "");
+
+    const results: ContextSearchResult[] = [];
+
+    for (const item of context.items) {
+      const _itemScore = this.calculateItemScore(item, keywords, query);
+      if (_itemScore > 0) {
+        const explanation = this.generateScoreExplanation(
+          item,
+          _itemScore,
+          keywords
+        );
+        results.push({ item, score: _itemScore, explanation });
+      }
+    }
+
+    results.sort((a, b) => b.score - a.score);
+
+    const limit = query.limit ?? 20;
+    return results.slice(0, limit);
   }
 
   /**
-   * Get memory-based context
+   * Update or create current state for a user
    */
-  private async getMemoryBasedContext(
+  async updateCurrentState(
     userId: string,
-    timeWindow: ContextTimeWindow,
-    limit: number
-  ): Promise<ContextItem[]> {
-    const searchQuery: MemorySearchQuery = {
-      userId,
-      sortBy: 'createdAt',
-      limit,
-    };
-
-    // Adjust query based on time window
-    if (timeWindow === ContextTimeWindow.NOW || timeWindow === ContextTimeWindow.RECENT) {
-      searchQuery.types = [MemoryType.CONVERSATION, MemoryType.EVENT];
-    }
-
-    const searchResult = await this.memoryService.searchMemories(searchQuery);
+    state: Partial<{
+      activity: string;
+      location: string;
+      mood: string;
+      energyLevel: "low" | "medium" | "high";
+      focusLevel: "low" | "medium" | "high";
+      availability: "available" | "busy" | "do_not_disturb";
+      deviceType: "mobile" | "desktop" | "other";
+    }>
+  ): Promise<ContextItem> {
     const now = new Date();
 
-    return searchResult.memories.map((memory) => {
-      const recencyScore = calculateRecencyScore(memory.createdAt, now);
-      const importanceScore = memory.importance / 5; // Normalize to 0-1
-      const relevanceScore = (recencyScore + importanceScore) / 2;
-
-      const expiresAt = this.getMemoryExpiry(memory.type);
-
-      return {
-        id: randomUUID(),
-        category: ContextCategory.RECENT_ACTIVITY,
-        relevance: getRelevanceLevelFromScore(relevanceScore),
-        relevanceScore,
-        timeWindow: getTimeWindowForDate(memory.createdAt, now),
-        timestamp: memory.createdAt,
-        ...(expiresAt && { expiresAt }),
-        metadata: {
-          memory: {
-            memoryId: memory.id,
-            memoryType: memory.type,
-            content: memory.content,
-          },
-        },
-      };
-    });
-  }
-
-  /**
-   * Get pattern-based context
-   */
-  private async getPatternBasedContext(userId: string): Promise<ContextItem[]> {
-    const patterns = await this.patternService.getPatterns({
-      userId,
-      active: true,
-      minConfidence: 0.5,
-    });
-
-    const now = new Date();
-    const items: ContextItem[] = [];
-
-    for (const pattern of patterns) {
-      // Check for pattern deviations
-      const deviationDetected = detectPatternDeviation(pattern, now);
-
-      // Calculate relevance based on confidence and recency
-      const recencyScore = calculateRecencyScore(pattern.lastObservedAt, now);
-      const confidenceScore = pattern.confidence;
-      const relevanceScore = (recencyScore * 0.4 + confidenceScore * 0.6);
-
-      items.push({
-        id: randomUUID(),
-        category: ContextCategory.PATTERNS,
-        relevance: getRelevanceLevelFromScore(relevanceScore),
-        relevanceScore,
-        timeWindow: ContextTimeWindow.LONGER_TERM,
-        timestamp: pattern.lastObservedAt,
-        metadata: {
-          pattern: {
-            patternId: pattern.id,
-            patternType: pattern.type,
-            name: pattern.name,
-            confidence: pattern.confidence,
-            deviationDetected,
-          },
-        },
-      });
-    }
-
-    return items;
-  }
-
-  /**
-   * Get stored context items
-   */
-  private async getStoredContext(
-    userId: string,
-    filters: {
-      categories?: ContextCategory[];
-      minRelevance?: ContextRelevance;
-      timeWindow?: ContextTimeWindow;
-    }
-  ): Promise<ContextItem[]> {
-    const conditions: string[] = ['user_id = $1', 'expires_at > NOW()'];
-    const values: unknown[] = [userId];
-    let paramIndex = 2;
-
-    if (filters.categories && filters.categories.length > 0) {
-      conditions.push(`category = ANY($${paramIndex++})`);
-      values.push(filters.categories);
-    }
-
-    if (filters.minRelevance) {
-      const minScore = this.getScoreForRelevanceLevel(filters.minRelevance);
-      conditions.push(`relevance_score >= $${paramIndex++}`);
-      values.push(minScore);
-    }
-
-    if (filters.timeWindow) {
-      conditions.push(`time_window = $${paramIndex++}`);
-      values.push(filters.timeWindow);
-    }
-
-    const query = `
+    const existingQuery = `
       SELECT * FROM context_items
-      WHERE ${conditions.join(' AND ')}
-      ORDER BY relevance_score DESC
+      WHERE user_id = $1 AND category = $2
+      ORDER BY timestamp DESC
+      LIMIT 1
     `;
 
-    const result = await this.db.query(query, values);
-    return result.rows.map((row) => this.mapRowToContextItem(row));
+    const existingResult = await this.db.query(existingQuery, [
+      userId,
+      ContextCategory.CURRENT_STATE,
+    ]);
+
+    const metadata = { state };
+
+    if (existingResult.rows.length > 0) {
+      const existing = existingResult.rows[0] as ContextItemRow;
+      const updateQuery = `
+        UPDATE context_items
+        SET metadata = $1, timestamp = $2, expires_at = $3, updated_at = NOW()
+        WHERE id = $4
+        RETURNING *
+      `;
+
+      const result = await this.db.query(updateQuery, [
+        JSON.stringify(metadata),
+        now,
+        getDefaultExpiry(ContextCategory.CURRENT_STATE, now),
+        existing.id,
+      ]);
+
+      return this.mapRowToContextItem(result.rows[0] as ContextItemRow);
+    }
+
+    return await this.createContextItem({
+      userId,
+      category: ContextCategory.CURRENT_STATE,
+      metadata,
+      relevance: ContextRelevance.CRITICAL,
+    });
+  }
+
+  // ========================================================================
+  // Private Helper Methods
+  // ========================================================================
+
+  /**
+   * Calculate default relevance score for a context item
+   */
+  private calculateDefaultRelevance(
+    category: ContextCategory,
+    _metadata: { state?: unknown; memory?: unknown; pattern?: unknown }
+  ): number {
+    switch (category) {
+      case ContextCategory.CURRENT_STATE:
+        return 0.95;
+      case ContextCategory.RECENT_ACTIVITY:
+        return 0.75;
+      case ContextCategory.PATTERNS:
+        return 0.65;
+      case ContextCategory.GOALS:
+        return 0.8;
+      case ContextCategory.SCHEDULE:
+        return 0.85;
+      default:
+        return 0.5;
+    }
+  }
+
+  /**
+   * Get numeric score value from relevance level
+   */
+  private getRelevanceScoreValue(relevance: ContextRelevance): number {
+    const values = {
+      [ContextRelevance.CRITICAL]: 0.9,
+      [ContextRelevance.HIGH]: 0.7,
+      [ContextRelevance.MEDIUM]: 0.5,
+      [ContextRelevance.LOW]: 0.3,
+      [ContextRelevance.MINIMAL]: 0.1,
+    };
+    return values[relevance] ?? 0.5;
+  }
+
+  /**
+   * Calculate search score for a context item
+   */
+  private calculateItemScore(
+    item: ContextItem,
+    keywords: string[],
+    _query: ContextQuery
+  ): number {
+    let _itemScore = item.relevanceScore;
+
+    if (keywords.length > 0) {
+      const metadataStr = JSON.stringify(item.metadata).toLowerCase();
+      let keywordMatches = 0;
+
+      for (const keyword of keywords) {
+        if (metadataStr.includes(keyword.toLowerCase())) {
+          keywordMatches++;
+        }
+      }
+
+      const keywordScore =
+        keywords.length > 0 ? keywordMatches / keywords.length : 0;
+      _itemScore += keywordScore * 0.3;
+    }
+
+    const recencyScore = calculateRecencyScore(item.timestamp);
+    _itemScore += recencyScore * 0.2;
+
+    return Math.min(_itemScore, 1);
+  }
+
+  /**
+   * Generate explanation for search score
+   */
+  private generateScoreExplanation(
+    item: ContextItem,
+    _score: number,
+    keywords: string[]
+  ): string {
+    const parts: string[] = [];
+
+    if (keywords.length > 0) {
+      const metadataStr = JSON.stringify(item.metadata).toLowerCase();
+      const matchedKeywords = keywords.filter((k) =>
+        metadataStr.includes(k.toLowerCase())
+      );
+      if (matchedKeywords.length > 0) {
+        parts.push(`matches keywords: ${matchedKeywords.join(", ")}`);
+      }
+    }
+
+    if (item.relevance === ContextRelevance.CRITICAL) {
+      parts.push("critical relevance");
+    }
+
+    const timeWindowStr = getTimeWindowForDate(item.timestamp);
+    if (timeWindowStr === ContextTimeWindow.NOW) {
+      parts.push("recent");
+    }
+
+    return parts.length > 0 ? parts.join(", ") : "default relevance";
+  }
+
+  /**
+   * Extract keywords from a query string
+   */
+  private extractKeywords(query: string): string[] {
+    if (!query) {
+      return [];
+    }
+
+    const stopWords = new Set([
+      "the",
+      "a",
+      "an",
+      "is",
+      "are",
+      "was",
+      "were",
+      "be",
+      "been",
+      "being",
+      "have",
+      "has",
+      "had",
+      "do",
+      "does",
+      "did",
+      "will",
+      "would",
+      "should",
+      "could",
+      "may",
+      "might",
+      "must",
+      "i",
+      "you",
+      "he",
+      "she",
+      "it",
+      "we",
+      "they",
+      "what",
+      "which",
+      "that",
+      "this",
+      "these",
+      "those",
+    ]);
+
+    return query
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((word) => word.length > 2 && !stopWords.has(word));
   }
 
   /**
    * Generate context summary
    */
-  private generateContextSummary(items: ContextItem[]): ContextSummary {
-    const criticalItems = items.filter((i) => i.relevance === ContextRelevance.CRITICAL);
-    const patternDeviations = items.filter(
-      (i) => i.metadata.pattern?.deviationDetected
-    );
-
-    // Extract key insights
+  private generateSummary(items: ContextItem[]): ContextSummary {
+    let primaryActivity: string | undefined;
+    let criticalCount = 0;
+    let activeGoals = 0;
     const keyInsights: string[] = [];
 
-    // Current state insights
-    const currentState = items.find((i) => i.category === ContextCategory.CURRENT_STATE);
-    if (currentState?.metadata.state) {
-      const state = currentState.metadata.state;
-      if (state.activity) {
-        keyInsights.push(`Currently: ${state.activity}`);
+    for (const item of items) {
+      if (item.category === ContextCategory.CURRENT_STATE) {
+        const activity = item.metadata.state?.activity;
+        if (activity && typeof activity === "string") {
+          primaryActivity = activity;
+        }
       }
-      if (state.mood) {
-        keyInsights.push(`Mood: ${state.mood}`);
+
+      if (item.category === ContextCategory.GOALS) {
+        activeGoals++;
+      }
+
+      if (item.relevance === ContextRelevance.CRITICAL) {
+        criticalCount++;
+      }
+
+      if (item.category === ContextCategory.PATTERNS) {
+        const pattern = item.metadata.pattern;
+        if (pattern && typeof pattern === "object") {
+          const name = "name" in pattern ? String(pattern.name) : "";
+          if (name && name.length > 0) {
+            keyInsights.push(`Pattern: ${name}`);
+          }
+        }
       }
     }
 
-    // Pattern deviation insights
-    if (patternDeviations.length > 0) {
-      keyInsights.push(`${patternDeviations.length} pattern deviation(s) detected`);
-    }
-
-    // Environment insights
-    const envContext = items.find((i) => i.category === ContextCategory.ENVIRONMENT);
-    if (envContext?.metadata.environment) {
-      const env = envContext.metadata.environment;
-      keyInsights.push(`${env.timeOfDay}, ${env.isWeekday ? 'weekday' : 'weekend'}`);
-    }
-
-    return {
-      upcomingEvents: items.filter((i) => i.category === ContextCategory.SCHEDULE).length,
-      activeGoals: items.filter((i) => i.category === ContextCategory.GOALS).length,
-      recentPatternDeviations: patternDeviations.length,
-      criticalItems: criticalItems.length,
-      keyInsights,
+    const summary: ContextSummary = {
+      upcomingEvents: 0,
+      activeGoals,
+      recentPatternDeviations: 0,
+      criticalItems: criticalCount,
+      keyInsights: keyInsights.slice(0, 5),
     };
-  }
 
-  // ==========================================================================
-  // Context Querying
-  // ==========================================================================
-
-  /**
-   * Query context with natural language or keywords
-   */
-  async queryContext(query: ContextQuery): Promise<ContextSearchResult[]> {
-    const {
-      userId,
-      keywords = [],
-      categories,
-      timeWindow,
-      minRelevance,
-      limit = 20,
-    } = query;
-
-    // Get aggregated context
-    const context = await this.aggregateContext({
-      userId,
-      ...(timeWindow && { timeWindow }),
-      ...(categories && { categories }),
-      ...(minRelevance && { minRelevance }),
-      maxItems: 100,
-    });
-
-    let results: ContextSearchResult[] = context.items.map((item) => ({
-      item,
-      score: item.relevanceScore,
-      explanation: this.generateRelevanceExplanation(item),
-    }));
-
-    // If keywords provided, re-score based on keyword matching
-    if (keywords.length > 0) {
-      results = results.map((result) => {
-        const keywordScore = this.calculateKeywordMatchScore(result.item, keywords);
-        const combinedScore = (result.score + keywordScore) / 2;
-
-        return {
-          ...result,
-          score: combinedScore,
-        };
-      });
+    if (primaryActivity !== undefined) {
+      summary.primaryActivity = primaryActivity;
     }
 
-    // Sort by score and limit
-    results.sort((a, b) => b.score - a.score);
-    return results.slice(0, limit);
+    return summary;
   }
-
-  /**
-   * Update current state context
-   */
-  async updateCurrentState(userId: string, state: StateContextData): Promise<ContextItem> {
-    // Find existing current state context or create new
-    const existing = await this.findCurrentStateContext(userId);
-
-    if (existing) {
-      // Update metadata
-      const query = `
-        UPDATE context_items
-        SET metadata = $2, timestamp = NOW(), expires_at = NOW() + INTERVAL '1 hour'
-        WHERE id = $1
-        RETURNING *
-      `;
-
-      const result = await this.db.query(query, [
-        existing.id,
-        JSON.stringify({ state }),
-      ]);
-
-      return this.mapRowToContextItem(result.rows[0]);
-    }
-
-    // Create new current state
-    return this.createContextItem({
-      userId,
-      category: ContextCategory.CURRENT_STATE,
-      metadata: { state },
-      relevance: ContextRelevance.CRITICAL,
-    });
-  }
-
-  /**
-   * Find existing current state context
-   */
-  private async findCurrentStateContext(userId: string): Promise<ContextItem | null> {
-    const query = `
-      SELECT * FROM context_items
-      WHERE user_id = $1
-        AND category = $2
-        AND expires_at > NOW()
-      ORDER BY timestamp DESC
-      LIMIT 1
-    `;
-
-    const result = await this.db.query(query, [userId, ContextCategory.CURRENT_STATE]);
-
-    return result.rows.length > 0 ? this.mapRowToContextItem(result.rows[0]) : null;
-  }
-
-  // ==========================================================================
-  // Helper Methods
-  // ==========================================================================
 
   /**
    * Map database row to ContextItem
    */
-  private mapRowToContextItem(row: Record<string, unknown>): ContextItem {
-    const expiresAt = row.expires_at ? (row.expires_at as Date) : undefined;
-
-    return {
-      id: row.id as string,
+  private mapRowToContextItem(row: ContextItemRow): ContextItem {
+    const baseItem: ContextItemWithoutExpiresAt = {
+      id: row.id,
       category: row.category as ContextCategory,
       relevance: row.relevance as ContextRelevance,
-      relevanceScore: parseFloat(row.relevance_score as string),
+      relevanceScore: parseFloat(row.relevance_score),
       timeWindow: row.time_window as ContextTimeWindow,
-      timestamp: row.timestamp as Date,
-      ...(expiresAt && { expiresAt }),
-      metadata: (typeof row.metadata === 'string'
-        ? JSON.parse(row.metadata)
-        : row.metadata) as ContextMetadata,
+      timestamp: row.timestamp,
+      metadata:
+        typeof row.metadata === "string"
+          ? JSON.parse(row.metadata)
+          : row.metadata,
     };
-  }
 
-  /**
-   * Get relevance score for relevance level
-   */
-  private getScoreForRelevanceLevel(relevance: ContextRelevance): number {
-    const scores: Record<ContextRelevance, number> = {
-      [ContextRelevance.CRITICAL]: 0.95,
-      [ContextRelevance.HIGH]: 0.75,
-      [ContextRelevance.MEDIUM]: 0.55,
-      [ContextRelevance.LOW]: 0.35,
-      [ContextRelevance.MINIMAL]: 0.15,
-    };
-    return scores[relevance];
-  }
-
-  /**
-   * Get expiry time for memory type
-   */
-  private getMemoryExpiry(memoryType: MemoryType): Date | undefined {
-    const expiry = new Date();
-
-    switch (memoryType) {
-      case MemoryType.CONVERSATION:
-        expiry.setHours(expiry.getHours() + 2);
-        break;
-      case MemoryType.EVENT:
-        expiry.setDate(expiry.getDate() + 7);
-        break;
-      case MemoryType.OBSERVATION:
-        expiry.setDate(expiry.getDate() + 14);
-        break;
-      default:
-        expiry.setDate(expiry.getDate() + 30);
+    if (row.expires_at !== null) {
+      return { ...baseItem, expiresAt: row.expires_at };
     }
 
-    return expiry;
-  }
-
-  /**
-   * Generate relevance explanation
-   */
-  private generateRelevanceExplanation(item: ContextItem): string {
-    const parts: string[] = [];
-
-    parts.push(`${item.relevance} relevance`);
-    parts.push(`from ${item.timeWindow}`);
-
-    if (item.metadata.memory) {
-      parts.push(`(memory: ${item.metadata.memory.memoryType})`);
-    } else if (item.metadata.pattern) {
-      parts.push(
-        `(pattern: ${item.metadata.pattern.patternType}, confidence: ${item.metadata.pattern.confidence.toFixed(2)})`
-      );
-    } else if (item.metadata.state) {
-      parts.push('(current state)');
-    }
-
-    return parts.join(' ');
-  }
-
-  /**
-   * Calculate keyword match score
-   */
-  private calculateKeywordMatchScore(item: ContextItem, keywords: string[]): number {
-    const searchableText = this.getSearchableText(item).toLowerCase();
-    const matches = keywords.filter((keyword) =>
-      searchableText.includes(keyword.toLowerCase())
-    );
-
-    return keywords.length > 0 ? matches.length / keywords.length : 0;
-  }
-
-  /**
-   * Get searchable text from context item
-   */
-  private getSearchableText(item: ContextItem): string {
-    const parts: string[] = [item.category];
-
-    if (item.metadata.memory) {
-      parts.push(item.metadata.memory.content);
-    }
-    if (item.metadata.pattern) {
-      parts.push(item.metadata.pattern.name);
-    }
-    if (item.metadata.state) {
-      const state = item.metadata.state;
-      if (state.activity) parts.push(state.activity);
-      if (state.location) parts.push(state.location);
-      if (state.mood) parts.push(state.mood);
-    }
-
-    return parts.join(' ');
+    return baseItem as ContextItem;
   }
 }

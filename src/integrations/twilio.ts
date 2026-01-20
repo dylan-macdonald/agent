@@ -4,6 +4,8 @@
  * Implements ISmsProvider for Twilio SMS service
  */
 
+import twilio from "twilio";
+
 import {
   ISmsProvider,
   SmsProviderCapabilities,
@@ -15,8 +17,8 @@ import {
   MessagePriority,
   SmsProviderConfig,
   formatPhoneNumber,
-} from '../types/sms.js';
-import { logger } from '../utils/logger.js';
+} from "../types/sms.js";
+import { logger } from "../utils/logger.js";
 
 /**
  * Twilio API response types
@@ -35,7 +37,7 @@ interface TwilioMessageResponse {
 }
 
 export class TwilioSmsProvider implements ISmsProvider {
-  readonly name = 'Twilio';
+  readonly name = "Twilio";
   readonly capabilities: SmsProviderCapabilities = {
     supportsDeliveryReceipts: true,
     supportsMediaMessages: true,
@@ -45,7 +47,7 @@ export class TwilioSmsProvider implements ISmsProvider {
   };
 
   private config: SmsProviderConfig;
-  private apiBaseUrl = 'https://api.twilio.com/2010-04-01';
+  private apiBaseUrl = "https://api.twilio.com/2010-04-01";
 
   constructor(config: SmsProviderConfig) {
     this.config = config;
@@ -53,6 +55,13 @@ export class TwilioSmsProvider implements ISmsProvider {
     if (config.apiEndpoint) {
       this.apiBaseUrl = config.apiEndpoint;
     }
+  }
+
+  /**
+   * Get provider capabilities
+   */
+  getCapabilities(): SmsProviderCapabilities {
+    return this.capabilities;
   }
 
   /**
@@ -69,29 +78,33 @@ export class TwilioSmsProvider implements ISmsProvider {
 
     // Add status callback URL if configured
     if (this.config.webhookUrl) {
-      body.append('StatusCallback', this.config.webhookUrl);
+      body.append("StatusCallback", this.config.webhookUrl);
     }
 
     try {
       const response = await fetch(url, {
-        method: 'POST',
+        method: "POST",
         headers: {
           Authorization: this.getAuthHeader(),
-          'Content-Type': 'application/x-www-form-urlencoded',
+          "Content-Type": "application/x-www-form-urlencoded",
         },
         body: body.toString(),
       });
 
       if (!response.ok) {
         const error = (await response.json()) as { message?: string };
-        throw new Error(`Twilio API error: ${error.message || response.statusText}`);
+        throw new Error(
+          `Twilio API error: ${error.message || response.statusText}`
+        );
       }
 
       const twilioMessage = (await response.json()) as TwilioMessageResponse;
 
       return this.mapTwilioMessage(twilioMessage, input.userId);
     } catch (error) {
-      logger.error(`Failed to send SMS via Twilio: ${(error as Error).message}`);
+      logger.error(
+        `Failed to send SMS via Twilio: ${(error as Error).message}`
+      );
       throw error;
     }
   }
@@ -104,7 +117,7 @@ export class TwilioSmsProvider implements ISmsProvider {
 
     try {
       const response = await fetch(url, {
-        method: 'GET',
+        method: "GET",
         headers: {
           Authorization: this.getAuthHeader(),
         },
@@ -118,7 +131,9 @@ export class TwilioSmsProvider implements ISmsProvider {
 
       return this.mapTwilioStatus(twilioMessage.status);
     } catch (error) {
-      logger.error(`Failed to get message status from Twilio: ${(error as Error).message}`);
+      logger.error(
+        `Failed to get message status from Twilio: ${(error as Error).message}`
+      );
       throw error;
     }
   }
@@ -131,7 +146,7 @@ export class TwilioSmsProvider implements ISmsProvider {
       messageId: payload.MessageSid as string,
       fromNumber: formatPhoneNumber(payload.From as string),
       toNumber: formatPhoneNumber(payload.To as string),
-      body: (payload.Body as string) || '',
+      body: (payload.Body as string) || "",
       timestamp: new Date(),
       providerName: this.name,
       providerData: payload,
@@ -141,21 +156,24 @@ export class TwilioSmsProvider implements ISmsProvider {
   /**
    * Validate webhook signature from Twilio
    */
-  validateWebhook(_payload: Record<string, unknown>, signature: string): boolean {
-    // Twilio uses HMAC-SHA1 signature validation
-    // This is a simplified implementation - in production, use Twilio's SDK
-    // or implement proper HMAC validation
-
-    // For now, just check that signature is present
-    // TODO: Implement proper Twilio signature validation
-    return signature !== undefined && signature.length > 0;
-  }
-
-  /**
-   * Get provider capabilities
-   */
-  getCapabilities(): SmsProviderCapabilities {
-    return { ...this.capabilities };
+  validateWebhook(
+    payload: Record<string, unknown>,
+    signature: string,
+    url: string
+  ): boolean {
+    try {
+      return twilio.validateRequest(
+        this.config.authToken,
+        signature,
+        url,
+        payload as Record<string, string>
+      );
+    } catch (error) {
+      logger.error(
+        `Twilio signature validation failed: ${(error as Error).message}`
+      );
+      return false;
+    }
   }
 
   // ==========================================================================
@@ -168,7 +186,7 @@ export class TwilioSmsProvider implements ISmsProvider {
   private getAuthHeader(): string {
     const credentials = Buffer.from(
       `${this.config.accountId}:${this.config.authToken}`
-    ).toString('base64');
+    ).toString("base64");
     return `Basic ${credentials}`;
   }
 
@@ -189,7 +207,7 @@ export class TwilioSmsProvider implements ISmsProvider {
     const errorMessage = twilioMessage.error_message;
 
     return {
-      id: '', // Will be generated by database
+      id: "", // Will be generated by database
       userId,
       direction: MessageDirection.OUTBOUND,
       fromNumber: formatPhoneNumber(twilioMessage.from),
@@ -203,7 +221,9 @@ export class TwilioSmsProvider implements ISmsProvider {
       ...(errorMessage && { errorMessage }),
       ...(sentAt && { sentAt }),
       createdAt: new Date(twilioMessage.date_created),
-      updatedAt: new Date(twilioMessage.date_updated || twilioMessage.date_created),
+      updatedAt: new Date(
+        twilioMessage.date_updated || twilioMessage.date_created
+      ),
     };
   }
 

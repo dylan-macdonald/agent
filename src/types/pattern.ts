@@ -367,7 +367,7 @@ export function isWeekend(day: DayOfWeek): boolean {
  * Calculate average time from array of time strings
  */
 export function calculateAverageTime(times: string[]): string {
-  if (times.length === 0) return '00:00';
+  if (times.length === 0) {return '00:00';}
 
   const totalMinutes = times.reduce((sum, time) => {
     return sum + timeStringToMinutes(time);
@@ -381,7 +381,7 @@ export function calculateAverageTime(times: string[]): string {
  * Calculate standard deviation for times
  */
 export function calculateTimeStandardDeviation(times: string[]): number {
-  if (times.length === 0) return 0;
+  if (times.length === 0) {return 0;}
 
   const minutes = times.map(timeStringToMinutes);
   const average = minutes.reduce((a, b) => a + b, 0) / minutes.length;

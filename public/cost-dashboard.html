@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Assistant - Cost Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body {
+        background-color: #0f172a;
+        color: #f8fafc;
+      }
+      .card {
+        background-color: #1e293b;
+        border: 1px solid #334155;
+      }
+    </style>
+  </head>
+  <body class="p-8">
+    <div class="max-w-4xl mx-auto">
+      <h1 class="text-3xl font-bold mb-8 text-blue-400">API Cost Monitoring</h1>
+
+      <div id="loading" class="text-xl">Loading summary data...</div>
+
+      <div id="content" class="hidden">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div class="card p-6 rounded-lg shadow-lg">
+            <h2 class="text-sm font-semibold text-slate-400 uppercase mb-2">
+              Total Spend (30d)
+            </h2>
+            <p id="total-cost" class="text-4xl font-bold text-white">$0.00</p>
+          </div>
+          <div class="card p-6 rounded-lg shadow-lg">
+            <h2 class="text-sm font-semibold text-slate-400 uppercase mb-2">
+              Active Providers
+            </h2>
+            <p id="provider-count" class="text-4xl font-bold text-white">0</p>
+          </div>
+          <div class="card p-6 rounded-lg shadow-lg">
+            <h2 class="text-sm font-semibold text-slate-400 uppercase mb-2">
+              Total Requests
+            </h2>
+            <p id="total-requests" class="text-4xl font-bold text-white">0</p>
+          </div>
+        </div>
+
+        <div class="card p-6 rounded-lg shadow-lg">
+          <h2 class="text-xl font-bold mb-4">Breakdown by Provider</h2>
+          <div id="provider-list" class="space-y-4">
+            <!-- Provider rows will be inserted here -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      async function fetchSummary() {
+        try {
+          const response = await fetch("/api/cost/summary");
+          const data = await response.json();
+
+          document.getElementById("loading").classList.add("hidden");
+          document.getElementById("content").classList.remove("hidden");
+
+          document.getElementById("total-cost").textContent =
+            `$${data.totalCostUsd.toFixed(2)}`;
+          document.getElementById("provider-count").textContent =
+            data.byProvider.length;
+
+          const totalRequests = data.byProvider.reduce(
+            (sum, p) => sum + p.entryCount,
+            0
+          );
+          document.getElementById("total-requests").textContent = totalRequests;
+
+          const list = document.getElementById("provider-list");
+          list.innerHTML = "";
+
+          data.byProvider.forEach((p) => {
+            const percentage = (p.totalCostUsd / data.totalCostUsd) * 100 || 0;
+            const row = document.createElement("div");
+            row.innerHTML = `
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="font-medium capitalize">${p.provider}</span>
+                            <span>$${p.totalCostUsd.toFixed(4)}</span>
+                        </div>
+                        <div class="w-full bg-slate-700 rounded-full h-2">
+                            <div class="bg-blue-500 h-2 rounded-full" style="width: ${percentage}%"></div>
+                        </div>
+                    `;
+            list.appendChild(row);
+          });
+        } catch (error) {
+          document.getElementById("loading").textContent =
+            "Error loading data: " + error.message;
+        }
+      }
+
+      fetchSummary();
+    </script>
+  </body>
+</html>

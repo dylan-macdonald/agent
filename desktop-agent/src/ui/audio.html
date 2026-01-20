@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Audio Player</title>
+</head>
+<body>
+    <script>
+        const { ipcRenderer } = require('electron');
+
+        ipcRenderer.on('play-audio', async (event, buffer) => {
+            try {
+                // Buffer comes as Node Buffer (Uint8Array)
+                // Convert to ArrayBuffer
+                const arrayBuffer = buffer.buffer.slice(
+                    buffer.byteOffset, 
+                    buffer.byteOffset + buffer.byteLength
+                );
+
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                
+                // Assuming the buffer is MP3 or WAV that decodeAudioData can handle.
+                // If it's raw PCM, we need more logic. 
+                // SocketService usually sends the raw output from ElevenLabs/TTS which is often MP3.
+                // If it's raw PCM, we need to know format. 
+                // For now, assume MP3 from ElevenLabs.
+                
+                const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                
+                const source = audioContext.createBufferSource();
+                source.buffer = audioBuffer;
+                source.connect(audioContext.destination);
+                
+                source.onended = () => {
+                    ipcRenderer.send('playback-finished');
+                };
+                
+                source.start(0);
+                
+            } catch (error) {
+                console.error("Playback failed:", error);
+                // Even if failed, let main know we are 'done'
+                ipcRenderer.send('playback-finished');
+            }
+        });
+
+        ipcRenderer.on('audio-state', (event, state) => {
+            console.log("Audio State:", state);
+        });
+    </script>
+</body>
+</html>
