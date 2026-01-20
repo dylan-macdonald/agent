@@ -4,7 +4,7 @@
  * Creates the context_items table for storing aggregated context
  */
 
-exports.up = (pgm) => {
+export const up = (pgm) => {
   // Context items table
   pgm.createTable('context_items', {
     id: {
@@ -76,6 +76,6 @@ exports.up = (pgm) => {
   });
 };
 
-exports.down = (pgm) => {
+export const down = (pgm) => {
   pgm.dropTable('context_items');
 };

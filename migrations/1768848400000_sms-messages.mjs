@@ -4,7 +4,7 @@
  * Creates the sms_messages table for storing SMS communication
  */
 
-exports.up = (pgm) => {
+export const up = (pgm) => {
   // SMS messages table
   pgm.createTable('sms_messages', {
     id: {
@@ -99,6 +99,6 @@ exports.up = (pgm) => {
   });
 };
 
-exports.down = (pgm) => {
+export const down = (pgm) => {
   pgm.dropTable('sms_messages');
 };

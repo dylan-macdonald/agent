@@ -2,7 +2,7 @@
  * Migration: Add Goals Table
  */
 
-exports.up = (pgm) => {
+export const up = (pgm) => {
     pgm.createTable('goals', {
         id: {
             type: 'uuid',
@@ -52,6 +52,6 @@ exports.up = (pgm) => {
     pgm.createIndex('goals', 'status');
 };
 
-exports.down = (pgm) => {
+export const down = (pgm) => {
     pgm.dropTable('goals');
 };

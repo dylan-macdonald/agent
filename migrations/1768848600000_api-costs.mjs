@@ -2,7 +2,7 @@
  * Migration: API Costs
  */
 
-exports.up = (pgm) => {
+export const up = (pgm) => {
   pgm.createTable("api_costs", {
     id: {
       type: "uuid",
@@ -44,6 +44,6 @@ exports.up = (pgm) => {
   pgm.createIndex("api_costs", "created_at");
 };
 
-exports.down = (pgm) => {
+export const down = (pgm) => {
   pgm.dropTable("api_costs");
 };

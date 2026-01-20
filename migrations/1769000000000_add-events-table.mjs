@@ -2,7 +2,7 @@
  * Migration: Add Events Table
  */
 
-exports.up = (pgm) => {
+export const up = (pgm) => {
     pgm.createTable('events', {
         id: {
             type: 'uuid',
@@ -56,6 +56,6 @@ exports.up = (pgm) => {
     pgm.createIndex('events', ['user_id', 'start_time']);
 };
 
-exports.down = (pgm) => {
+export const down = (pgm) => {
     pgm.dropTable('events');
 };

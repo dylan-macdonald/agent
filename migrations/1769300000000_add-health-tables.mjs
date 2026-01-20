@@ -2,7 +2,7 @@
  * Migration: Add Health Tables (Sleep, Workouts)
  */
 
-exports.up = (pgm) => {
+export const up = (pgm) => {
     // Sleep Logs
     pgm.createTable('sleep_logs', {
         id: {
@@ -88,7 +88,7 @@ exports.up = (pgm) => {
     pgm.createIndex('workouts', 'started_at');
 };
 
-exports.down = (pgm) => {
+export const down = (pgm) => {
     pgm.dropTable('workouts');
     pgm.dropTable('sleep_logs');
 };
