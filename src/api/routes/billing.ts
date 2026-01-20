@@ -21,12 +21,14 @@ export function createBillingRouter(billingService: BillingService): Router {
       const { provider, apiKey } = req.body;
 
       if (!provider || !apiKey) {
-        return res.status(400).json({ error: "Provider and apiKey are required" });
+        res.status(400).json({ error: "Provider and apiKey are required" });
+        return;
       }
 
       const validProviders = ['anthropic', 'openai', 'twilio', 'elevenlabs'];
       if (!validProviders.includes(provider)) {
-        return res.status(400).json({ error: "Invalid provider" });
+        res.status(400).json({ error: "Invalid provider" });
+        return;
       }
 
       await billingService.saveApiKey(req.params.userId, provider, apiKey);
