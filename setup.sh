@@ -179,7 +179,7 @@ setup_environment() {
     read -p "PostgreSQL username [postgres]: " db_user
     db_user=${db_user:-postgres}
 
-    read -p "PostgreSQL password: " -s db_pass
+    read -p "PostgreSQL password (press Enter for none): " -s db_pass
     echo ""
 
     read -p "PostgreSQL host [localhost]: " db_host
@@ -191,7 +191,12 @@ setup_environment() {
     read -p "Database name [ai_assistant]: " db_name
     db_name=${db_name:-ai_assistant}
 
-    local db_url="postgresql://$db_user:$db_pass@$db_host:$db_port/$db_name"
+    # Build DATABASE_URL - handle empty password correctly
+    if [ -n "$db_pass" ]; then
+        local db_url="postgresql://$db_user:$db_pass@$db_host:$db_port/$db_name"
+    else
+        local db_url="postgresql://$db_user@$db_host:$db_port/$db_name"
+    fi
 
     if [[ "$OSTYPE" == "darwin"* ]]; then
         sed -i '' "s|DATABASE_URL=.*|DATABASE_URL=$db_url|" .env
