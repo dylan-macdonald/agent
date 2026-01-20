@@ -6,6 +6,7 @@ import { DashboardLayout } from './layouts/DashboardLayout';
 import { Overview } from './pages/Overview';
 import { Chat } from './pages/Chat';
 import { Calendar } from './pages/Calendar';
+import { Goals } from './pages/Goals';
 import { Health } from './pages/Health';
 import { Settings } from './pages/Settings';
 
@@ -35,6 +36,7 @@ function App() {
           <Route index element={<Overview />} />
           <Route path="chat" element={<Chat />} />
           <Route path="calendar" element={<Calendar />} />
+          <Route path="goals" element={<Goals />} />
           <Route path="health" element={<Health />} />
           <Route path="settings" element={<Settings />} />
         </Route>
