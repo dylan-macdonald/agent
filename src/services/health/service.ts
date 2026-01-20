@@ -34,6 +34,57 @@ export class SleepService {
         }
     }
 
+    /**
+     * Get sleep logs for a user within a number of days
+     */
+    public async getSleepLogs(userId: string, days: number = 7): Promise<SleepLog[]> {
+        const query = `
+            SELECT * FROM sleep_logs
+            WHERE user_id = $1
+            AND start_time >= NOW() - INTERVAL '1 day' * $2
+            ORDER BY start_time DESC
+        `;
+
+        try {
+            const result = await this.db.query(query, [userId, days]);
+            return result.rows.map(this.mapRowToSleep);
+        } catch (error) {
+            logger.error("Failed to get sleep logs", { error, userId });
+            return [];
+        }
+    }
+
+    /**
+     * Get sleep statistics for a user
+     */
+    public async getSleepStats(userId: string, days: number = 7): Promise<{
+        avgHours: number;
+        avgQuality: number | null;
+        totalLogs: number;
+    }> {
+        const logs = await this.getSleepLogs(userId, days);
+
+        if (logs.length === 0) {
+            return { avgHours: 0, avgQuality: null, totalLogs: 0 };
+        }
+
+        const totalHours = logs.reduce((sum, log) => {
+            const hours = (new Date(log.endTime).getTime() - new Date(log.startTime).getTime()) / (1000 * 60 * 60);
+            return sum + hours;
+        }, 0);
+
+        const qualityLogs = logs.filter(l => l.quality !== null);
+        const avgQuality = qualityLogs.length > 0
+            ? qualityLogs.reduce((sum, l) => sum + (l.quality || 0), 0) / qualityLogs.length
+            : null;
+
+        return {
+            avgHours: Math.round((totalHours / logs.length) * 10) / 10,
+            avgQuality: avgQuality ? Math.round(avgQuality * 10) / 10 : null,
+            totalLogs: logs.length
+        };
+    }
+
     private mapRowToSleep(row: any): SleepLog {
         return {
             id: row.id,
@@ -72,6 +123,55 @@ export class WorkoutService {
             logger.error("Failed to log workout", { error, userId });
             throw error;
         }
+    }
+
+    /**
+     * Get workouts for a user within a number of days
+     */
+    public async getWorkouts(userId: string, days: number = 7): Promise<Workout[]> {
+        const query = `
+            SELECT * FROM workouts
+            WHERE user_id = $1
+            AND started_at >= NOW() - INTERVAL '1 day' * $2
+            ORDER BY started_at DESC
+        `;
+
+        try {
+            const result = await this.db.query(query, [userId, days]);
+            return result.rows.map(this.mapRowToWorkout);
+        } catch (error) {
+            logger.error("Failed to get workouts", { error, userId });
+            return [];
+        }
+    }
+
+    /**
+     * Get workout statistics for a user
+     */
+    public async getWorkoutStats(userId: string, days: number = 7): Promise<{
+        totalWorkouts: number;
+        totalMinutes: number;
+        totalCalories: number;
+        byActivity: Record<string, number>;
+    }> {
+        const workouts = await this.getWorkouts(userId, days);
+
+        const byActivity: Record<string, number> = {};
+        let totalCalories = 0;
+        let totalMinutes = 0;
+
+        for (const workout of workouts) {
+            totalMinutes += workout.durationMins;
+            totalCalories += workout.caloriesBurned || 0;
+            byActivity[workout.activityType] = (byActivity[workout.activityType] || 0) + 1;
+        }
+
+        return {
+            totalWorkouts: workouts.length,
+            totalMinutes,
+            totalCalories,
+            byActivity
+        };
     }
 
     private mapRowToWorkout(row: any): Workout {

@@ -8,6 +8,7 @@ import morgan from "morgan";
 import { Pool } from "pg";
 
 import { createCostRouter } from "./api/routes/cost.js";
+import { createDashboardRouter } from "./api/routes/dashboard.js";
 import { createSmsRouter } from "./api/routes/sms.js";
 import { TwilioSmsProvider } from "./integrations/twilio.js";
 import { ElevenLabsVoiceProvider } from "./integrations/voice/elevenlabs-provider.js";
@@ -34,6 +35,7 @@ import { ReminderService } from "./services/reminder.js";
 import { ReminderScheduler } from "./services/reminder-scheduler.js";
 import { CheckInScheduler } from "./services/checkin-scheduler.js";
 import { GoalService } from "./services/goal.js";
+import { SettingsService } from "./services/settings.js";
 import { AppConfig } from "./types/index.js";
 import { logger } from "./utils/logger.js";
 import { SleepService, WorkoutService } from "./services/health/service.js";
@@ -59,8 +61,8 @@ export class App {
   private calendarService!: CalendarService;
   private reminderService!: ReminderService;
   private reminderScheduler!: ReminderScheduler;
-
-
+  private settingsService!: SettingsService;
+  private socketService!: SocketService;
 
   constructor(private config: AppConfig) {
     this.express = express();
@@ -108,6 +110,7 @@ export class App {
 
     this.smsService = new SmsService(this.db, twilioProvider, this.smsQueue);
     this.costService = new CostService(this.db);
+    this.settingsService = new SettingsService(this.db, this.redis);
 
     // Initialize Assistant components
     const processor = new MessageProcessor();
@@ -134,6 +137,11 @@ export class App {
     this.checkInScheduler = new CheckInScheduler(this.checkInService, this.db);
 
     this.goalService = new GoalService(this.db);
+
+    // Initialize Health services
+    this.sleepService = new SleepService(this.db);
+    this.workoutService = new WorkoutService(this.db);
+    this.mindfulnessService = new MindfulnessService();
 
     this.assistantService = new AssistantService(
       this.smsService,
@@ -162,14 +170,14 @@ export class App {
     this.voiceService = new VoiceService(this.db, sttProvider, ttsProvider);
 
     // Initialize Socket service
-    const socketService = new SocketService(
+    this.socketService = new SocketService(
       this.server,
       this.assistantService,
       this.voiceService
     );
 
     // Register Vision Tool (requires socket service)
-    this.toolService.registerTool(new VisionTool(socketService));
+    this.toolService.registerTool(new VisionTool(this.socketService));
   }
 
   private setupMiddleware(): void {
@@ -198,6 +206,19 @@ export class App {
       createSmsRouter(this.smsService, this.assistantService)
     );
     this.express.use("/api/cost", createCostRouter(this.costService));
+
+    // Dashboard API routes
+    this.express.use(
+      "/api/dashboard",
+      createDashboardRouter(
+        this.calendarService,
+        this.goalService,
+        this.reminderService,
+        this.sleepService,
+        this.workoutService,
+        this.settingsService
+      )
+    );
   }
 
   private setupErrorHandling(): void {
@@ -210,6 +231,10 @@ export class App {
         res.status(500).json({ error: "Internal Server Error" });
       }
     );
+  }
+
+  public getSocketService(): SocketService {
+    return this.socketService;
   }
 
   public start(): void {

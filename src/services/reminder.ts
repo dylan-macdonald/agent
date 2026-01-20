@@ -77,6 +77,38 @@ export class ReminderService {
     }
 
     /**
+     * Get all reminders for a user
+     */
+    public async getUserReminders(userId: string): Promise<Reminder[]> {
+        const query = `
+            SELECT * FROM reminders
+            WHERE user_id = $1
+            ORDER BY due_at ASC
+        `;
+
+        try {
+            const result = await this.db.query(query, [userId]);
+            return result.rows.map(this.mapRowToReminder);
+        } catch (error) {
+            logger.error("Failed to get user reminders", { error, userId });
+            return [];
+        }
+    }
+
+    /**
+     * Delete a reminder
+     */
+    public async deleteReminder(userId: string, reminderId: string): Promise<void> {
+        const query = `DELETE FROM reminders WHERE id = $1 AND user_id = $2`;
+        try {
+            await this.db.query(query, [reminderId, userId]);
+        } catch (error) {
+            logger.error("Failed to delete reminder", { error, reminderId });
+            throw new Error("Failed to delete reminder");
+        }
+    }
+
+    /**
      * Update reminder status (e.g., mark as SENT)
      */
     public async updateStatus(id: string, status: ReminderStatus): Promise<void> {

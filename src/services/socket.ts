@@ -1,7 +1,7 @@
 /**
  * Socket Service
  *
- * Handles real-time communication with desktop agents via Socket.io
+ * Handles real-time communication with desktop agents and web dashboard via Socket.io
  */
 
 import { randomUUID } from "crypto";
@@ -14,12 +14,25 @@ import { logger } from "../utils/logger.js";
 import { AssistantService } from "./assistant.js";
 import { VoiceService } from "./voice.js";
 
+interface ChatMessage {
+  id: string;
+  userId: string;
+  content: string;
+  role: 'user' | 'assistant';
+  timestamp: Date;
+}
 
+interface ConnectedClient {
+  userId: string;
+  deviceId: string;
+  type: 'desktop' | 'web';
+}
 
 export class SocketService {
   private io: SocketIOServer;
   private pendingScreenshots: Map<string, (buffer: Buffer | null) => void> = new Map();
-  private connectedClients: Map<string, { userId: string; deviceId: string }> = new Map();
+  private connectedClients: Map<string, ConnectedClient> = new Map();
+  private chatHistory: Map<string, ChatMessage[]> = new Map();
 
   constructor(
     private httpServer: HttpServer,
@@ -43,7 +56,8 @@ export class SocketService {
   private setupHandlers(): void {
     this.io.on("connection", (socket: Socket) => {
       const userId = socket.handshake.query.userId as string;
-      const deviceId = socket.handshake.query.deviceId as string;
+      const deviceId = socket.handshake.query.deviceId as string || 'web';
+      const clientType = socket.handshake.query.type as 'desktop' | 'web' || 'desktop';
 
       if (!userId) {
         logger.warn("Socket connection attempt without userId", {
@@ -54,19 +68,101 @@ export class SocketService {
       }
 
       logger.info(
-        `Desktop agent connected: User=${userId}, Device=${deviceId}`,
+        `Client connected: User=${userId}, Device=${deviceId}, Type=${clientType}`,
         {
           socketId: socket.id,
         }
       );
 
       socket.join(`user:${userId}`);
-      this.connectedClients.set(socket.id, { userId, deviceId });
+      this.connectedClients.set(socket.id, { userId, deviceId, type: clientType });
+
+      // Send connection confirmation
+      socket.emit("connected", {
+        userId,
+        socketId: socket.id,
+        timestamp: new Date().toISOString()
+      });
+
+      // ========== Web Chat Handlers ==========
+
+      // Handle chat message from web dashboard
+      socket.on("chat-message", async (data: { content: string }) => {
+        try {
+          const messageId = randomUUID();
+          const userMessage: ChatMessage = {
+            id: messageId,
+            userId,
+            content: data.content,
+            role: 'user',
+            timestamp: new Date()
+          };
+
+          // Store in history
+          this.addToHistory(userId, userMessage);
+
+          // Echo the user message back for confirmation
+          socket.emit("chat-message-received", userMessage);
+
+          // Emit typing indicator
+          socket.emit("assistant-typing", { typing: true });
+
+          // Process with assistant
+          const responseText = await this.assistantService.handleVoiceMessage(
+            userId,
+            data.content
+          );
+
+          // Stop typing indicator
+          socket.emit("assistant-typing", { typing: false });
+
+          // Create assistant message
+          const assistantMessage: ChatMessage = {
+            id: randomUUID(),
+            userId,
+            content: responseText,
+            role: 'assistant',
+            timestamp: new Date()
+          };
+
+          // Store in history
+          this.addToHistory(userId, assistantMessage);
+
+          // Send response
+          socket.emit("chat-response", assistantMessage);
+
+          // Notify other connected clients (e.g., desktop agent)
+          socket.to(`user:${userId}`).emit("chat-update", {
+            userMessage,
+            assistantMessage
+          });
+
+        } catch (error) {
+          logger.error("Error processing chat message", {
+            error: (error as Error).message,
+            userId,
+          });
+          socket.emit("assistant-typing", { typing: false });
+          socket.emit("chat-error", { message: "Failed to process message" });
+        }
+      });
+
+      // Handle request for chat history
+      socket.on("get-chat-history", (data: { limit?: number }) => {
+        const history = this.getHistory(userId, data.limit || 50);
+        socket.emit("chat-history", { messages: history });
+      });
+
+      // ========== Desktop Agent Handlers ==========
 
       // Handle wake word detection
       socket.on("wake-word-detected", () => {
         logger.debug(`Wake word detected for user ${userId}`);
-        // Optionally notify other devices or log
+        // Notify web dashboard
+        this.io.to(`user:${userId}`).emit("voice-activity", {
+          type: 'wake-word',
+          timestamp: new Date().toISOString()
+        });
       });
 
       // Handle audio stream (voice data)
@@ -83,10 +179,21 @@ export class SocketService {
           );
 
           if (voiceMessage.transcript) {
-            socket.emit("transcript", {
+            // Notify all user clients about the transcript
+            this.io.to(`user:${userId}`).emit("transcript", {
               text: voiceMessage.transcript,
               messageId: voiceMessage.id,
             });
+
+            // Store in chat history
+            const userMessage: ChatMessage = {
+              id: voiceMessage.id,
+              userId,
+              content: voiceMessage.transcript,
+              role: 'user',
+              timestamp: new Date()
+            };
+            this.addToHistory(userId, userMessage);
 
             // 2. Assistant: Generate response
             const responseText = await this.assistantService.handleVoiceMessage(
@@ -94,7 +201,18 @@ export class SocketService {
               voiceMessage.transcript
             );
 
-            socket.emit("response-text", { text: responseText });
+            // Notify all clients
+            this.io.to(`user:${userId}`).emit("response-text", { text: responseText });
+
+            // Store assistant response in history
+            const assistantMessage: ChatMessage = {
+              id: randomUUID(),
+              userId,
+              content: responseText,
+              role: 'assistant',
+              timestamp: new Date()
+            };
+            this.addToHistory(userId, assistantMessage);
 
             // 3. TTS: Synthesize response
             const { audioBuffer: responseAudio } =
@@ -103,7 +221,7 @@ export class SocketService {
                 responseText
               );
 
-            // 4. Send audio back to client
+            // 4. Send audio back to desktop client
             socket.emit("voice-response", responseAudio);
           }
         } catch (error) {
@@ -140,17 +258,42 @@ export class SocketService {
     });
   }
 
+  /**
+   * Add message to user's chat history
+   */
+  private addToHistory(userId: string, message: ChatMessage): void {
+    if (!this.chatHistory.has(userId)) {
+      this.chatHistory.set(userId, []);
+    }
+    const history = this.chatHistory.get(userId)!;
+    history.push(message);
+    // Keep only last 100 messages in memory
+    if (history.length > 100) {
+      history.shift();
+    }
+  }
+
+  /**
+   * Get chat history for a user
+   */
+  private getHistory(userId: string, limit: number = 50): ChatMessage[] {
+    const history = this.chatHistory.get(userId) || [];
+    return history.slice(-limit);
+  }
+
   public async requestScreenshot(userId: string): Promise<Buffer | null> {
-    const clientEntry = Array.from(this.connectedClients.entries()).find(([_, info]) => info.userId === userId);
+    const clientEntry = Array.from(this.connectedClients.entries()).find(
+      ([_, info]) => info.userId === userId && info.type === 'desktop'
+    );
     if (!clientEntry) {
       logger.warn(`No connected desktop client found for user ${userId}`);
       return null;
     }
 
-    const [socketId, _] = clientEntry;
+    const [socketId] = clientEntry;
     const socket = this.io.sockets.sockets.get(socketId);
 
-    if (!socket) {return null;}
+    if (!socket) { return null; }
 
     const requestId = randomUUID();
     return new Promise((resolve) => {
@@ -180,5 +323,16 @@ export class SocketService {
    */
   public broadcast(event: string, data: any): void {
     this.io.emit(event, data);
+  }
+
+  /**
+   * Get connected clients info
+   */
+  public getConnectedClients(userId?: string): ConnectedClient[] {
+    const clients = Array.from(this.connectedClients.values());
+    if (userId) {
+      return clients.filter(c => c.userId === userId);
+    }
+    return clients;
   }
 }
