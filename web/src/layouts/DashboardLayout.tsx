@@ -1,7 +1,6 @@
-
 import React from 'react';
 import { useNavigate, Outlet, useLocation } from 'react-router-dom';
-import { LogOut, Home, MessageSquare, Calendar, Activity, Settings } from 'lucide-react';
+import { LogOut, Home, MessageSquare, Calendar, Activity, Settings, Bot, Target } from 'lucide-react';
 
 export function DashboardLayout() {
     const navigate = useNavigate();
@@ -19,79 +18,107 @@ export function DashboardLayout() {
         return false;
     };
 
+    const getPageTitle = () => {
+        if (location.pathname === '/') return 'Overview';
+        if (location.pathname.startsWith('/chat')) return 'Chat';
+        if (location.pathname.startsWith('/calendar')) return 'Calendar';
+        if (location.pathname.startsWith('/health')) return 'Health & Wellness';
+        if (location.pathname.startsWith('/settings')) return 'Settings';
+        return '';
+    };
+
     return (
-        <div className="flex h-screen bg-gray-950 text-white font-sans">
+        <div className="flex h-screen bg-zinc-950 text-white">
             {/* Sidebar */}
-            <aside className="w-64 bg-gray-900 border-r border-gray-800 flex flex-col backdrop-blur-md bg-opacity-80">
-                <div className="p-6 border-b border-gray-800">
-                    <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">
-                        Agent Dashboard
-                    </h1>
+            <aside className="w-64 bg-zinc-900/50 border-r border-zinc-800 flex flex-col backdrop-blur-xl">
+                {/* Logo */}
+                <div className="p-5 border-b border-zinc-800">
+                    <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center">
+                            <Bot size={20} className="text-white" />
+                        </div>
+                        <span className="text-lg font-semibold tracking-tight">Agent</span>
+                    </div>
                 </div>
 
-                <nav className="flex-1 p-4 space-y-2">
+                {/* Navigation */}
+                <nav className="flex-1 p-3 space-y-1">
                     <NavItem
-                        icon={<Home size={20} />}
+                        icon={<Home size={18} />}
                         label="Overview"
                         active={isActive('/')}
                         onClick={() => navigate('/')}
                     />
                     <NavItem
-                        icon={<MessageSquare size={20} />}
+                        icon={<MessageSquare size={18} />}
                         label="Chat"
                         active={isActive('/chat')}
                         onClick={() => navigate('/chat')}
                     />
                     <NavItem
-                        icon={<Calendar size={20} />}
+                        icon={<Calendar size={18} />}
                         label="Calendar"
                         active={isActive('/calendar')}
                         onClick={() => navigate('/calendar')}
                     />
                     <NavItem
-                        icon={<Activity size={20} />}
+                        icon={<Target size={18} />}
+                        label="Goals"
+                        active={isActive('/goals')}
+                        onClick={() => navigate('/goals')}
+                        disabled
+                    />
+                    <NavItem
+                        icon={<Activity size={18} />}
                         label="Health"
                         active={isActive('/health')}
                         onClick={() => navigate('/health')}
                     />
                     <NavItem
-                        icon={<Settings size={20} />}
+                        icon={<Settings size={18} />}
                         label="Settings"
                         active={isActive('/settings')}
                         onClick={() => navigate('/settings')}
                     />
                 </nav>
 
-                <div className="p-4 border-t border-gray-800">
+                {/* User Section */}
+                <div className="p-3 border-t border-zinc-800">
+                    <div className="flex items-center gap-3 px-3 py-2 mb-2">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-xs font-bold">
+                            {userId?.charAt(0).toUpperCase() || 'U'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium truncate">{userId}</div>
+                            <div className="text-xs text-zinc-500">Active</div>
+                        </div>
+                    </div>
                     <button
                         onClick={handleLogout}
-                        className="flex items-center space-x-3 w-full px-4 py-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+                        className="flex items-center gap-3 w-full px-3 py-2 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors text-sm"
                     >
-                        <LogOut size={20} />
+                        <LogOut size={16} />
                         <span>Sign Out</span>
                     </button>
                 </div>
             </aside>
 
             {/* Main Content */}
-            <main className="flex-1 overflow-auto bg-gradient-to-br from-gray-950 to-gray-900 flex flex-col">
-                <header className="h-16 border-b border-gray-800 flex items-center justify-between px-8 bg-gray-900 bg-opacity-50 backdrop-blur-sm sticky top-0 z-10 shrink-0">
-                    <h2 className="text-lg font-medium text-gray-200">
-                        {location.pathname === '/' && 'Overview'}
-                        {location.pathname.startsWith('/chat') && 'Chat'}
-                        {location.pathname.startsWith('/calendar') && 'Calendar'}
-                        {location.pathname.startsWith('/health') && 'Health & Wellness'}
-                        {location.pathname.startsWith('/settings') && 'Settings'}
+            <main className="flex-1 overflow-hidden flex flex-col bg-zinc-950">
+                {/* Header */}
+                <header className="h-14 border-b border-zinc-800 flex items-center justify-between px-6 bg-zinc-900/30 backdrop-blur-sm shrink-0">
+                    <h2 className="text-base font-medium text-zinc-200">
+                        {getPageTitle()}
                     </h2>
-                    <div className="flex items-center space-x-4">
-                        <div className="text-sm text-gray-400">
-                            Logged in as <span className="text-blue-400 font-medium">{userId}</span>
+                    <div className="flex items-center gap-4">
+                        <div className="text-xs text-zinc-500">
+                            Press <kbd className="px-1.5 py-0.5 bg-zinc-800 rounded text-zinc-400">?</kbd> for help
                         </div>
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500" />
                     </div>
                 </header>
 
-                <div className="flex-1 overflow-auto p-8 relative">
+                {/* Content */}
+                <div className="flex-1 overflow-auto p-6">
                     <Outlet />
                 </div>
             </main>
@@ -99,18 +126,33 @@ export function DashboardLayout() {
     );
 }
 
-function NavItem({ icon, label, active = false, onClick }: { icon: React.ReactNode, label: string, active?: boolean, onClick: () => void }) {
+function NavItem({ icon, label, active = false, onClick, disabled = false }: {
+    icon: React.ReactNode;
+    label: string;
+    active?: boolean;
+    onClick: () => void;
+    disabled?: boolean;
+}) {
     return (
         <button
             onClick={onClick}
-            className={`flex items-center space-x-3 w-full px-4 py-3 rounded-lg transition-all ${active
-                    ? 'bg-blue-600 bg-opacity-20 text-blue-400 border border-blue-500/30'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-800'
-                }`}
+            disabled={disabled}
+            className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg transition-all text-sm ${
+                disabled
+                    ? 'text-zinc-600 cursor-not-allowed'
+                    : active
+                        ? 'bg-blue-500/10 text-blue-400'
+                        : 'text-zinc-400 hover:text-white hover:bg-zinc-800/50'
+            }`}
         >
             {icon}
             <span className="font-medium">{label}</span>
-            {active && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.6)]" />}
+            {active && (
+                <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-400" />
+            )}
+            {disabled && (
+                <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-500">Soon</span>
+            )}
         </button>
     );
 }
