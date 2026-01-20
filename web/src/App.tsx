@@ -9,6 +9,7 @@ import { Calendar } from './pages/Calendar';
 import { Goals } from './pages/Goals';
 import { Health } from './pages/Health';
 import { Settings } from './pages/Settings';
+import { Billing } from './pages/Billing';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const userId = localStorage.getItem('agent_user_id');
@@ -39,6 +40,7 @@ function App() {
           <Route path="goals" element={<Goals />} />
           <Route path="health" element={<Health />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="billing" element={<Billing />} />
         </Route>
       </Routes>
     </Router>

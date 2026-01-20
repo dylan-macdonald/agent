@@ -14,5 +14,11 @@ export function createCostRouter(costService: CostService): Router {
     res.json(summary);
   });
 
+  router.get("/daily", async (req, res) => {
+    const days = parseInt(req.query.days as string) || 7;
+    const daily = await costService.getDailyUsage(days);
+    res.json({ daily });
+  });
+
   return router;
 }

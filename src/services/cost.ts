@@ -68,4 +68,24 @@ export class CostService {
       timeRange: { start, end },
     };
   }
+
+  /**
+   * Get daily cost breakdown for a time range
+   */
+  async getDailyUsage(days: number): Promise<{ date: string; cost: number }[]> {
+    const query = `
+      SELECT DATE(created_at) as date, SUM(cost_usd) as total_cost
+      FROM api_costs
+      WHERE created_at >= NOW() - INTERVAL '${days} days'
+      GROUP BY DATE(created_at)
+      ORDER BY date ASC
+    `;
+
+    const result = await this.db.query(query);
+
+    return result.rows.map((row) => ({
+      date: row.date.toISOString().split('T')[0],
+      cost: parseFloat(row.total_cost) || 0,
+    }));
+  }
 }
