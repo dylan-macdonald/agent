@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Target, Plus, CheckCircle2, Circle, TrendingUp, Calendar as CalendarIcon, Loader2, AlertCircle, X } from 'lucide-react';
 import { api, type Goal } from '../lib/api';
+import { ProgressRing } from '../components/Chart';
 
 export function Goals() {
     const [goals, setGoals] = useState<Goal[]>([]);
@@ -55,6 +56,13 @@ export function Goals() {
     const activeGoals = goals.filter(g => g.status === 'active');
     const completedGoals = goals.filter(g => g.status === 'completed');
 
+    // Calculate overall progress
+    const overallProgress = useMemo(() => {
+        if (goals.length === 0) return 0;
+        const totalProgress = goals.reduce((acc, g) => acc + (g.progress || 0), 0);
+        return Math.round(totalProgress / goals.length);
+    }, [goals]);
+
     if (loading) {
         return (
             <div className="flex items-center justify-center h-64">
@@ -69,6 +77,35 @@ export function Goals() {
                 <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
                     <AlertCircle size={16} />
                     {error}
+                </div>
+            )}
+
+            {/* Summary Card */}
+            {goals.length > 0 && (
+                <div className="rounded-xl bg-zinc-900 border border-zinc-800 p-5">
+                    <div className="flex items-center gap-6">
+                        <ProgressRing
+                            value={overallProgress}
+                            max={100}
+                            size={80}
+                            color="#3b82f6"
+                            label="Overall"
+                        />
+                        <div className="flex-1 grid grid-cols-3 gap-4">
+                            <div>
+                                <div className="text-2xl font-bold">{goals.length}</div>
+                                <div className="text-xs text-zinc-500">Total Goals</div>
+                            </div>
+                            <div>
+                                <div className="text-2xl font-bold text-blue-400">{activeGoals.length}</div>
+                                <div className="text-xs text-zinc-500">Active</div>
+                            </div>
+                            <div>
+                                <div className="text-2xl font-bold text-emerald-400">{completedGoals.length}</div>
+                                <div className="text-xs text-zinc-500">Completed</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             )}
 

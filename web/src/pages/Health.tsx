@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Heart, Moon, Dumbbell, Brain, TrendingUp, Plus, Loader2, AlertCircle, X, Clock } from 'lucide-react';
 import { api, type SleepLog, type Workout } from '../lib/api';
+import { BarChart } from '../components/Chart';
 
 export function Health() {
     const [sleepLogs, setSleepLogs] = useState<SleepLog[]>([]);
@@ -62,6 +63,50 @@ export function Health() {
     const weeklyWorkouts = workouts.length;
     const totalWorkoutMinutes = workouts.reduce((acc, w) => acc + w.duration, 0);
 
+    // Prepare chart data
+    const sleepChartData = useMemo(() => {
+        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const today = new Date();
+        const last7Days = Array.from({ length: 7 }, (_, i) => {
+            const d = new Date(today);
+            d.setDate(d.getDate() - (6 - i));
+            return d;
+        });
+
+        return last7Days.map(date => {
+            const dayLog = sleepLogs.find(log => {
+                const logDate = new Date(log.bedtime);
+                return logDate.toDateString() === date.toDateString();
+            });
+            return {
+                label: days[date.getDay()],
+                value: dayLog?.duration || 0,
+            };
+        });
+    }, [sleepLogs]);
+
+    const workoutChartData = useMemo(() => {
+        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const today = new Date();
+        const last7Days = Array.from({ length: 7 }, (_, i) => {
+            const d = new Date(today);
+            d.setDate(d.getDate() - (6 - i));
+            return d;
+        });
+
+        return last7Days.map(date => {
+            const dayWorkouts = workouts.filter(w => {
+                const workoutDate = new Date(w.date);
+                return workoutDate.toDateString() === date.toDateString();
+            });
+            const totalMinutes = dayWorkouts.reduce((acc, w) => acc + w.duration, 0);
+            return {
+                label: days[date.getDay()],
+                value: totalMinutes,
+            };
+        });
+    }, [workouts]);
+
     if (loading) {
         return (
             <div className="flex items-center justify-center h-64">
@@ -105,6 +150,38 @@ export function Health() {
                     trend="Available via Voice"
                     color="amber"
                 />
+            </div>
+
+            {/* Weekly Trends */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="rounded-xl bg-zinc-900 border border-zinc-800 p-5">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-sm font-medium text-zinc-400 flex items-center gap-2">
+                            <Moon size={14} className="text-indigo-400" />
+                            Sleep (hours/night)
+                        </h3>
+                    </div>
+                    <BarChart
+                        data={sleepChartData}
+                        height={100}
+                        color="#818cf8"
+                        emptyMessage="No sleep data this week"
+                    />
+                </div>
+                <div className="rounded-xl bg-zinc-900 border border-zinc-800 p-5">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-sm font-medium text-zinc-400 flex items-center gap-2">
+                            <Dumbbell size={14} className="text-emerald-400" />
+                            Workouts (minutes/day)
+                        </h3>
+                    </div>
+                    <BarChart
+                        data={workoutChartData}
+                        height={100}
+                        color="#34d399"
+                        emptyMessage="No workout data this week"
+                    />
+                </div>
             </div>
 
             {/* Quick Actions */}
