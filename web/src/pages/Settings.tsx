@@ -19,8 +19,9 @@ export function Settings() {
         try {
             setLoading(true);
             setError(null);
-            const data = await api.getSettings(userId);
-            setSettings(data);
+            const { data, error: apiError } = await api.getSettings(userId);
+            if (apiError) throw new Error(apiError);
+            setSettings(data?.settings || null);
         } catch (err) {
             setError('Failed to load settings');
             console.error('Settings load error:', err);

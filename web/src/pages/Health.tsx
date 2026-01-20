@@ -21,12 +21,14 @@ export function Health() {
         try {
             setLoading(true);
             setError(null);
-            const [sleepData, workoutData] = await Promise.all([
+            const [sleepResponse, workoutResponse] = await Promise.all([
                 api.getSleepLogs(userId, 7),
                 api.getWorkouts(userId, 7),
             ]);
-            setSleepLogs(sleepData);
-            setWorkouts(workoutData);
+            if (sleepResponse.error) throw new Error(sleepResponse.error);
+            if (workoutResponse.error) throw new Error(workoutResponse.error);
+            setSleepLogs(sleepResponse.data?.sleepLogs || []);
+            setWorkouts(workoutResponse.data?.workouts || []);
         } catch (err) {
             setError('Failed to load health data');
             console.error('Health data load error:', err);
@@ -35,33 +37,42 @@ export function Health() {
         }
     }
 
-    async function handleLogSleep(bedtime: string, wakeTime: string, quality: number) {
+    async function handleLogSleep(startTime: string, endTime: string, quality: number) {
         try {
-            const newLog = await api.logSleep(userId, { bedtime, wakeTime, quality });
-            setSleepLogs(prev => [newLog, ...prev]);
+            const { data, error: apiError } = await api.logSleep(userId, { startTime, endTime, quality });
+            if (apiError || !data?.sleepLog) throw new Error(apiError || 'Failed to log sleep');
+            setSleepLogs(prev => [data.sleepLog, ...prev]);
             setShowSleepModal(false);
         } catch (err) {
             console.error('Failed to log sleep:', err);
         }
     }
 
-    async function handleLogWorkout(activityType: string, duration: number, intensity: string) {
+    async function handleLogWorkout(activityType: string, durationMins: number) {
         try {
-            const newWorkout = await api.logWorkout(userId, { activityType, duration, intensity });
-            setWorkouts(prev => [newWorkout, ...prev]);
+            const { data, error: apiError } = await api.logWorkout(userId, { activityType, durationMins });
+            if (apiError || !data?.workout) throw new Error(apiError || 'Failed to log workout');
+            setWorkouts(prev => [data.workout, ...prev]);
             setShowWorkoutModal(false);
         } catch (err) {
             console.error('Failed to log workout:', err);
         }
     }
 
+    // Helper to calculate sleep duration in hours
+    const getSleepDuration = (log: SleepLog) => {
+        const start = new Date(log.startTime).getTime();
+        const end = new Date(log.endTime).getTime();
+        return (end - start) / (1000 * 60 * 60); // hours
+    };
+
     // Calculate stats
     const avgSleep = sleepLogs.length > 0
-        ? (sleepLogs.reduce((acc, log) => acc + (log.duration || 0), 0) / sleepLogs.length).toFixed(1)
+        ? (sleepLogs.reduce((acc, log) => acc + getSleepDuration(log), 0) / sleepLogs.length).toFixed(1)
         : '--';
 
     const weeklyWorkouts = workouts.length;
-    const totalWorkoutMinutes = workouts.reduce((acc, w) => acc + w.duration, 0);
+    const totalWorkoutMinutes = workouts.reduce((acc, w) => acc + w.durationMins, 0);
 
     // Prepare chart data
     const sleepChartData = useMemo(() => {
@@ -75,12 +86,12 @@ export function Health() {
 
         return last7Days.map(date => {
             const dayLog = sleepLogs.find(log => {
-                const logDate = new Date(log.bedtime);
+                const logDate = new Date(log.startTime);
                 return logDate.toDateString() === date.toDateString();
             });
             return {
-                label: days[date.getDay()],
-                value: dayLog?.duration || 0,
+                label: days[date.getDay()] || '',
+                value: dayLog ? getSleepDuration(dayLog) : 0,
             };
         });
     }, [sleepLogs]);
@@ -96,12 +107,12 @@ export function Health() {
 
         return last7Days.map(date => {
             const dayWorkouts = workouts.filter(w => {
-                const workoutDate = new Date(w.date);
+                const workoutDate = new Date(w.startedAt);
                 return workoutDate.toDateString() === date.toDateString();
             });
-            const totalMinutes = dayWorkouts.reduce((acc, w) => acc + w.duration, 0);
+            const totalMinutes = dayWorkouts.reduce((acc, w) => acc + w.durationMins, 0);
             return {
-                label: days[date.getDay()],
+                label: days[date.getDay()] || '',
                 value: totalMinutes,
             };
         });
@@ -217,10 +228,10 @@ export function Health() {
                                     <div className="flex items-center justify-between">
                                         <div>
                                             <div className="text-sm font-medium">
-                                                {log.duration ? `${log.duration.toFixed(1)} hours` : 'Duration unknown'}
+                                                {getSleepDuration(log).toFixed(1)} hours
                                             </div>
                                             <div className="text-xs text-zinc-500">
-                                                {new Date(log.bedtime).toLocaleDateString()}
+                                                {new Date(log.startTime).toLocaleDateString()}
                                             </div>
                                         </div>
                                         <QualityBadge quality={log.quality} />
@@ -252,12 +263,16 @@ export function Health() {
                                             </div>
                                             <div className="text-xs text-zinc-500 flex items-center gap-2">
                                                 <Clock size={10} />
-                                                {workout.duration} min
+                                                {workout.durationMins} min
                                                 <span className="text-zinc-600">·</span>
-                                                {new Date(workout.date).toLocaleDateString()}
+                                                {new Date(workout.startedAt).toLocaleDateString()}
                                             </div>
                                         </div>
-                                        <IntensityBadge intensity={workout.intensity} />
+                                        {workout.caloriesBurned && (
+                                            <span className="text-xs px-2 py-1 rounded bg-emerald-500/10 text-emerald-400">
+                                                {workout.caloriesBurned} cal
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
                             ))
@@ -361,36 +376,23 @@ function QualityBadge({ quality }: { quality?: number }) {
     );
 }
 
-function IntensityBadge({ intensity }: { intensity: string }) {
-    const colors: Record<string, string> = {
-        low: 'bg-blue-500/10 text-blue-400',
-        moderate: 'bg-amber-500/10 text-amber-400',
-        high: 'bg-red-500/10 text-red-400',
-    };
-
-    return (
-        <span className={`text-xs px-2 py-1 rounded capitalize ${colors[intensity] || 'bg-zinc-800 text-zinc-400'}`}>
-            {intensity}
-        </span>
-    );
-}
 
 function SleepModal({ onClose, onSubmit }: {
     onClose: () => void;
-    onSubmit: (bedtime: string, wakeTime: string, quality: number) => void;
+    onSubmit: (startTime: string, endTime: string, quality: number) => void;
 }) {
     const [bedtime, setBedtime] = useState('23:00');
     const [wakeTime, setWakeTime] = useState('07:00');
     const [quality, setQuality] = useState(3);
-    const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+    const [date, setDate] = useState(new Date().toISOString().split('T')[0] || '');
     const [submitting, setSubmitting] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setSubmitting(true);
-        const bedtimeISO = new Date(`${date}T${bedtime}`).toISOString();
-        const wakeTimeISO = new Date(`${date}T${wakeTime}`).toISOString();
-        await onSubmit(bedtimeISO, wakeTimeISO, quality);
+        const startTimeISO = new Date(`${date}T${bedtime}`).toISOString();
+        const endTimeISO = new Date(`${date}T${wakeTime}`).toISOString();
+        await onSubmit(startTimeISO, endTimeISO, quality);
         setSubmitting(false);
     };
 
@@ -481,11 +483,10 @@ function SleepModal({ onClose, onSubmit }: {
 
 function WorkoutModal({ onClose, onSubmit }: {
     onClose: () => void;
-    onSubmit: (activityType: string, duration: number, intensity: string) => void;
+    onSubmit: (activityType: string, durationMins: number) => void;
 }) {
     const [activityType, setActivityType] = useState('running');
     const [duration, setDuration] = useState(30);
-    const [intensity, setIntensity] = useState('moderate');
     const [submitting, setSubmitting] = useState(false);
 
     const activities = ['running', 'walking', 'cycling', 'swimming', 'weights', 'yoga', 'hiit', 'other'];
@@ -493,7 +494,7 @@ function WorkoutModal({ onClose, onSubmit }: {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setSubmitting(true);
-        await onSubmit(activityType, duration, intensity);
+        await onSubmit(activityType, duration);
         setSubmitting(false);
     };
 
@@ -531,26 +532,6 @@ function WorkoutModal({ onClose, onSubmit }: {
                             max={300}
                             className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white focus:outline-none focus:border-emerald-500"
                         />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm text-zinc-400 mb-2">Intensity</label>
-                        <div className="flex gap-2">
-                            {['low', 'moderate', 'high'].map((i) => (
-                                <button
-                                    key={i}
-                                    type="button"
-                                    onClick={() => setIntensity(i)}
-                                    className={`flex-1 py-2 rounded-lg text-sm capitalize transition-colors ${
-                                        intensity === i
-                                            ? 'bg-emerald-500 text-white'
-                                            : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
-                                    }`}
-                                >
-                                    {i}
-                                </button>
-                            ))}
-                        </div>
                     </div>
 
                     <div className="flex gap-3 pt-2">

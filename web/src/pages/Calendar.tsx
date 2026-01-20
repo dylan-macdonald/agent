@@ -28,12 +28,13 @@ export function Calendar() {
             const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
             const lastDay = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
 
-            const data = await api.getCalendarEvents(
+            const { data, error: apiError } = await api.getCalendarEvents(
                 userId,
-                firstDay.toISOString(),
-                lastDay.toISOString()
+                firstDay,
+                lastDay
             );
-            setEvents(data);
+            if (apiError) throw new Error(apiError);
+            setEvents(data?.events || []);
         } catch (err) {
             setError('Failed to load events');
             console.error('Calendar load error:', err);
@@ -44,12 +45,13 @@ export function Calendar() {
 
     async function handleCreateEvent(title: string, startTime: string, endTime: string) {
         try {
-            const newEvent = await api.createCalendarEvent(userId, {
+            const { data, error: apiError } = await api.createCalendarEvent(userId, {
                 title,
                 startTime,
                 endTime,
             });
-            setEvents(prev => [...prev, newEvent]);
+            if (apiError || !data?.event) throw new Error(apiError || 'Failed to create event');
+            setEvents(prev => [...prev, data.event]);
             setShowAddModal(false);
             setSelectedDay(null);
         } catch (err) {

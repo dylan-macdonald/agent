@@ -1,9 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
-    Activity,
     Calendar,
     Target,
-    Heart,
     MessageSquare,
     Mic,
     Server,
@@ -295,7 +293,6 @@ function QuickStatCard({ icon, label, value, subtext }: {
 function EventItem({ event }: { event: CalendarEvent }) {
     const date = new Date(event.startTime);
     const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const dateStr = date.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
 
     return (
         <div className="flex items-center gap-3 p-3 rounded-lg bg-zinc-800/50">
