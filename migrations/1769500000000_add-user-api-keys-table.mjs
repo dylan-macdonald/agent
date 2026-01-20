@@ -5,7 +5,9 @@
  * (Anthropic, OpenAI, Twilio, ElevenLabs, etc.)
  */
 
-exports.up = (pgm) => {
+export const shorthands = undefined;
+
+export const up = (pgm) => {
   // Create user_api_keys table
   pgm.createTable("user_api_keys", {
     id: {
@@ -53,6 +55,6 @@ exports.up = (pgm) => {
   });
 };
 
-exports.down = (pgm) => {
+export const down = (pgm) => {
   pgm.dropTable("user_api_keys");
 };
