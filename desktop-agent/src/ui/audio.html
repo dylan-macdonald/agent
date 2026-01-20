@@ -1,43 +1,75 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Audio Player</title>
+    <style>
+        body {
+            background: #09090b;
+            color: #fafafa;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .status {
+            font-size: 14px;
+            color: #71717a;
+        }
+
+        .status.playing {
+            color: #3b82f6;
+        }
+    </style>
 </head>
 <body>
+    <div class="status" id="status">Audio Ready</div>
+
     <script>
         const { ipcRenderer } = require('electron');
 
+        const statusEl = document.getElementById('status');
+
         ipcRenderer.on('play-audio', async (event, buffer) => {
             try {
+                statusEl.textContent = 'Playing...';
+                statusEl.classList.add('playing');
+
                 // Buffer comes as Node Buffer (Uint8Array)
                 // Convert to ArrayBuffer
                 const arrayBuffer = buffer.buffer.slice(
-                    buffer.byteOffset, 
+                    buffer.byteOffset,
                     buffer.byteOffset + buffer.byteLength
                 );
 
                 const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                
+
                 // Assuming the buffer is MP3 or WAV that decodeAudioData can handle.
-                // If it's raw PCM, we need more logic. 
+                // If it's raw PCM, we need more logic.
                 // SocketService usually sends the raw output from ElevenLabs/TTS which is often MP3.
-                // If it's raw PCM, we need to know format. 
-                // For now, assume MP3 from ElevenLabs.
-                
+
                 const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-                
+
                 const source = audioContext.createBufferSource();
                 source.buffer = audioBuffer;
                 source.connect(audioContext.destination);
-                
+
                 source.onended = () => {
+                    statusEl.textContent = 'Audio Ready';
+                    statusEl.classList.remove('playing');
                     ipcRenderer.send('playback-finished');
                 };
-                
+
                 source.start(0);
-                
+
             } catch (error) {
                 console.error("Playback failed:", error);
+                statusEl.textContent = 'Playback Failed';
+                statusEl.classList.remove('playing');
                 // Even if failed, let main know we are 'done'
                 ipcRenderer.send('playback-finished');
             }

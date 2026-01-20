@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Settings</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #09090b;
+            --bg-secondary: #18181b;
+            --bg-card: #27272a;
+            --border: #3f3f46;
+            --text-primary: #fafafa;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --accent-blue: #3b82f6;
+            --accent-emerald: #10b981;
+            --accent-amber: #f59e0b;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.5;
+            -webkit-app-region: drag;
+        }
+
+        .header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(180deg, rgba(59, 130, 246, 0.08) 0%, transparent 100%);
+        }
+
+        .header h1 {
+            font-size: 18px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header h1::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-emerald);
+            box-shadow: 0 0 8px var(--accent-emerald);
+        }
+
+        .content {
+            padding: 20px 24px;
+            -webkit-app-region: no-drag;
+        }
+
+        .section {
+            margin-bottom: 24px;
+        }
+
+        .section-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 12px;
+        }
+
+        .card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .setting-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .setting-row:last-child {
+            border-bottom: none;
+        }
+
+        .setting-info {
+            flex: 1;
+        }
+
+        .setting-label {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 2px;
+        }
+
+        .setting-description {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .toggle {
+            position: relative;
+            width: 44px;
+            height: 24px;
+            border-radius: 12px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            cursor: pointer;
+            transition: background 0.2s, border-color 0.2s;
+        }
+
+        .toggle.active {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+        }
+
+        .toggle::after {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--text-primary);
+            transition: transform 0.2s;
+        }
+
+        .toggle.active::after {
+            transform: translateX(20px);
+        }
+
+        .input-field {
+            width: 100%;
+            padding: 10px 14px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+        }
+
+        .input-field:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--accent-emerald);
+        }
+
+        .status-badge.disconnected {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: rgba(239, 68, 68, 0.3);
+            color: #ef4444;
+        }
+
+        .status-badge::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        .btn {
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s;
+            border: none;
+        }
+
+        .btn-primary {
+            background: var(--accent-blue);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2563eb;
+        }
+
+        .btn-secondary {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-secondary);
+        }
+
+        .footer {
+            padding: 20px 24px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+
+        .version {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-family: 'JetBrains Mono', monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Agent Desktop</h1>
+    </div>
+
+    <div class="content">
+        <div class="section">
+            <div class="section-title">Connection</div>
+            <div class="card">
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">Status</div>
+                        <div class="setting-description">Connection to backend server</div>
+                    </div>
+                    <span class="status-badge" id="connection-status">Connected</span>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">Backend URL</div>
+                        <div style="margin-top: 8px;">
+                            <input type="text" class="input-field" id="backend-url" value="http://localhost:3001" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Voice</div>
+            <div class="card">
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">Voice Detection</div>
+                        <div class="setting-description">Listen for wake word activation</div>
+                    </div>
+                    <div class="toggle active" id="toggle-voice" onclick="toggleSetting(this)"></div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">Auto-Listen After Response</div>
+                        <div class="setting-description">Resume listening after playback completes</div>
+                    </div>
+                    <div class="toggle active" id="toggle-autolisten" onclick="toggleSetting(this)"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Privacy</div>
+            <div class="card">
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">Screen Capture</div>
+                        <div class="setting-description">Allow assistant to capture screen when requested</div>
+                    </div>
+                    <div class="toggle" id="toggle-screen" onclick="toggleSetting(this)"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">System</div>
+            <div class="card">
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">Version</div>
+                        <div class="setting-description version" id="version">0.1.0</div>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-label">Device ID</div>
+                        <div class="setting-description version" id="device-id">desktop-agent-1</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <button class="btn btn-secondary" onclick="window.close()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveSettings()">Save Changes</button>
+    </div>
+
+    <script>
+        // Use the exposed electron API from preload script
+        const electronAPI = window.electronAPI;
+
+        function toggleSetting(element) {
+            element.classList.toggle('active');
+        }
+
+        async function loadSettings() {
+            try {
+                if (!electronAPI) {
+                    console.warn('Electron API not available, running in browser mode');
+                    return;
+                }
+
+                const status = await electronAPI.getStatus();
+                document.getElementById('version').textContent = status.version || '0.1.0';
+
+                if (status.isListening) {
+                    document.getElementById('toggle-voice').classList.add('active');
+                }
+            } catch (error) {
+                console.error('Failed to load settings:', error);
+            }
+        }
+
+        function saveSettings() {
+            const settings = {
+                backendUrl: document.getElementById('backend-url').value,
+                voiceEnabled: document.getElementById('toggle-voice').classList.contains('active'),
+                autoListen: document.getElementById('toggle-autolisten').classList.contains('active'),
+                screenCaptureEnabled: document.getElementById('toggle-screen').classList.contains('active'),
+            };
+
+            if (electronAPI) {
+                electronAPI.saveSettings(settings);
+            }
+            window.close();
+        }
+
+        // Update connection status from main process
+        if (electronAPI) {
+            electronAPI.onConnectionStatus((connected) => {
+                const badge = document.getElementById('connection-status');
+                if (connected) {
+                    badge.textContent = 'Connected';
+                    badge.classList.remove('disconnected');
+                } else {
+                    badge.textContent = 'Disconnected';
+                    badge.classList.add('disconnected');
+                }
+            });
+        }
+
+        loadSettings();
+    </script>
+</body>
+</html>
