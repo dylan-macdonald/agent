@@ -5,6 +5,9 @@
  */
 
 export const up = (pgm) => {
+    // Drop the old key-value style user_settings table from initial schema
+    pgm.dropTable('user_settings', { ifExists: true, cascade: true });
+
     pgm.createTable('user_settings', {
         user_id: {
             type: 'uuid',
