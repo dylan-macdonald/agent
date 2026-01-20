@@ -540,3 +540,29 @@ The MVP provides **genuine daily utility** through:
 | 2026-01-20T02:15:00Z | Antigravity         | **DOCS UPDATED**: Aligned TODO.md with completed MVP-6 (Productivity) and MVP-7 (Health) features. Added MVP-8 (Dashboard) and MVP Finalization sections. |
 | 2026-01-20T03:30:00Z | Antigravity         | **MVP-5 COMPLETE & MVP-8 STARTED**: Completed Search caching/limits, Calc extensions, Vision OCR/History, Privacy Consent. Initialized Web Dashboard (React/Vite/Tailwind) with Auth & Layouts. |
 | 2026-01-20T05:35:00Z | Claude (Opus 4.5)   | **REVIEW & CLEANUP**: Fixed TODO.md inconsistencies - removed duplicate 6A section, corrected MVP-8 numbering (7A→8A etc), removed misplaced 5E section, completed 6B section, clarified 5E status (backend done, UI pending). Audited tests (188 passing, properly mocking external deps). |
+| 2026-01-20T17:30:00Z | Antigravity         | **MVP-9 STARTED**: Added MVP 9: Proactive Agency & Voice Alarms. Includes adaptive scheduling, infrastructure management in UI, and voice-based wake-up calls. |
+
+
+## MVP 9: Proactive Agency & Voice Alarms
+
+**Goal**: Transform into a proactive agent that adapts to the user's schedule and actively engages via voice.
+
+### 9A. Infrastructure & Settings
+- [~] Update `user_api_keys` constraints for new providers (Twilio, ElevenLabs, Exa)
+- [~] Update `SettingsService` & API to handle new keys and adaptive preferences
+- [ ] Update Frontend `Settings.tsx` with new key inputs
+
+### 9B. Adaptive Scheduling
+- [ ] Add `wake_time` / `sleep_time` to User Settings
+- [ ] Update `CheckInScheduler` to use dynamic times
+- [ ] Implement "Adaptive Logic" (Average sleep time from `SleepService`)
+
+### 9C. Voice Alarms
+- [ ] Create `VoiceAlarmService` (Twilio Call + TwiML)
+- [ ] Implement "Listen & Hangup" logic
+- [ ] Integrate with `CheckInScheduler`
+
+### 9D. Proactivity
+- [ ] Connect `LlmService` to Check-ins (Context-aware briefings)
+- [ ] Verify End-to-End
+| 2026-01-20T18:40:00Z | Antigravity         | **MVP-11 COMPLETE**: Optimizations & UI Polish. Merged Smart Router/Memory Gatekeeper into single LLM call (-50% API usage). Added Accent Color customization in Settings. Fixed "New Mission" Reset Logic. Refactored AssistantService for strict types. |

@@ -109,6 +109,14 @@ export interface UserSettings {
     morningCheckInTime: string;
     eveningCheckInTime: string;
     timezone: string;
+    llmProvider: 'anthropic' | 'openai' | 'ollama';
+    llmModel?: string;
+    username?: string;
+    phoneNumber?: string;
+    wakeTime: string;
+    sleepTime: string;
+    useVoiceAlarm: boolean;
+    adaptiveTiming: boolean;
     createdAt: string;
     updatedAt: string;
 }
@@ -243,5 +251,16 @@ export const api = {
             method: 'PATCH',
             body: JSON.stringify(updates),
         });
+    },
+
+    async saveApiKey(userId: string, provider: string, apiKey: string): Promise<ApiResponse<{ success: boolean }>> {
+        return fetchApi(`/api/billing/${userId}/keys`, {
+            method: 'POST',
+            body: JSON.stringify({ provider, apiKey }),
+        });
+    },
+
+    async getLlmModels(userId: string, provider: string): Promise<ApiResponse<string[]>> {
+        return fetchApi(`/api/llm/${userId}/models/${provider}`);
     },
 };

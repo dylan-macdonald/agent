@@ -24,6 +24,15 @@ export interface UserSettings {
     eveningCheckInTime: string; // HH:MM format
     // Other
     timezone: string;
+    // Personalization
+    llmProvider: 'anthropic' | 'openai' | 'ollama';
+    llmModel?: string;
+    username?: string;
+    phoneNumber?: string;
+    wakeTime: string; // HH:MM
+    sleepTime: string; // HH:MM
+    useVoiceAlarm: boolean;
+    adaptiveTiming: boolean;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -39,6 +48,14 @@ export interface UpdateSettingsDTO {
     morningCheckInTime?: string;
     eveningCheckInTime?: string;
     timezone?: string;
+    llmProvider?: 'anthropic' | 'openai' | 'ollama';
+    llmModel?: string;
+    username?: string;
+    phoneNumber?: string;
+    wakeTime?: string;
+    sleepTime?: string;
+    useVoiceAlarm?: boolean;
+    adaptiveTiming?: boolean;
 }
 
 const DEFAULT_SETTINGS: Omit<UserSettings, 'userId' | 'createdAt' | 'updatedAt'> = {
@@ -51,14 +68,20 @@ const DEFAULT_SETTINGS: Omit<UserSettings, 'userId' | 'createdAt' | 'updatedAt'>
     reminderNotificationsEnabled: true,
     morningCheckInTime: '08:00',
     eveningCheckInTime: '21:00',
-    timezone: 'UTC'
+    timezone: 'UTC',
+    llmProvider: 'anthropic',
+    llmModel: 'auto', // Default to Smart Router (Haiku Judge)
+    wakeTime: '09:00',
+    sleepTime: '23:00',
+    useVoiceAlarm: false,
+    adaptiveTiming: false
 };
 
 export class SettingsService {
     private cachePrefix = 'settings:';
     private cacheTTL = 3600; // 1 hour
 
-    constructor(private db: Pool, private redis: Redis) {}
+    constructor(private db: Pool, private redis: Redis) { }
 
     /**
      * Get user settings (creates default if not exists)
@@ -151,6 +174,38 @@ export class SettingsService {
             fields.push(`timezone = $${idx++}`);
             values.push(updates.timezone);
         }
+        if (updates.llmProvider !== undefined) {
+            fields.push(`llm_provider = $${idx++}`);
+            values.push(updates.llmProvider);
+        }
+        if (updates.llmModel !== undefined) {
+            fields.push(`llm_model = $${idx++}`);
+            values.push(updates.llmModel);
+        }
+        if (updates.username !== undefined) {
+            fields.push(`username = $${idx++}`);
+            values.push(updates.username);
+        }
+        if (updates.phoneNumber !== undefined) {
+            fields.push(`phone_number = $${idx++}`);
+            values.push(updates.phoneNumber);
+        }
+        if (updates.wakeTime !== undefined) {
+            fields.push(`wake_time = $${idx++}`);
+            values.push(updates.wakeTime);
+        }
+        if (updates.sleepTime !== undefined) {
+            fields.push(`sleep_time = $${idx++}`);
+            values.push(updates.sleepTime);
+        }
+        if (updates.useVoiceAlarm !== undefined) {
+            fields.push(`use_voice_alarm = $${idx++}`);
+            values.push(updates.useVoiceAlarm);
+        }
+        if (updates.adaptiveTiming !== undefined) {
+            fields.push(`adaptive_timing = $${idx++}`);
+            values.push(updates.adaptiveTiming);
+        }
 
         if (fields.length === 0) {
             return await this.getSettings(userId);
@@ -192,6 +247,9 @@ export class SettingsService {
      * Create default settings for a new user
      */
     private async createDefaultSettings(userId: string): Promise<UserSettings> {
+        // Ensure user exists in users table first
+        await this.ensureUserExists(userId);
+
         const query = `
             INSERT INTO user_settings (
                 user_id,
@@ -204,9 +262,13 @@ export class SettingsService {
                 reminder_notifications_enabled,
                 morning_check_in_time,
                 evening_check_in_time,
-                timezone
+                timezone,
+                llm_provider,
+                llm_model,
+                username,
+                phone_number
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
             ON CONFLICT (user_id) DO UPDATE SET updated_at = NOW()
             RETURNING *
         `;
@@ -222,7 +284,11 @@ export class SettingsService {
             DEFAULT_SETTINGS.reminderNotificationsEnabled,
             DEFAULT_SETTINGS.morningCheckInTime,
             DEFAULT_SETTINGS.eveningCheckInTime,
-            DEFAULT_SETTINGS.timezone
+            DEFAULT_SETTINGS.timezone,
+            DEFAULT_SETTINGS.llmProvider,
+            DEFAULT_SETTINGS.llmModel,
+            DEFAULT_SETTINGS.username,
+            DEFAULT_SETTINGS.phoneNumber
         ];
 
         try {
@@ -240,6 +306,33 @@ export class SettingsService {
         }
     }
 
+    /**
+     * Ensure user exists in the users table
+     */
+    private async ensureUserExists(userId: string): Promise<void> {
+        try {
+            const checkQuery = `SELECT id FROM users WHERE id = $1`;
+            const checkResult = await this.db.query(checkQuery, [userId]);
+
+            if (checkResult.rowCount === 0) {
+                // Create user if not exists
+                // phone_number is nullable now, so we can just insert ID
+                const createQuery = `
+                    INSERT INTO users (id)
+                    VALUES ($1)
+                    ON CONFLICT (id) DO NOTHING
+                `;
+                await this.db.query(createQuery, [userId]);
+                logger.info(`Created missing user record`, { userId });
+            }
+        } catch (error) {
+            logger.error("Failed to ensure user exists", { error, userId });
+            // Don't throw here, let the subsequent insert fail if it must, 
+            // but this is critical for the FK constraint.
+            throw error;
+        }
+    }
+
     private mapRowToSettings(row: any): UserSettings {
         return {
             userId: row.user_id,
@@ -253,6 +346,14 @@ export class SettingsService {
             morningCheckInTime: row.morning_check_in_time,
             eveningCheckInTime: row.evening_check_in_time,
             timezone: row.timezone,
+            llmProvider: row.llm_provider,
+            llmModel: row.llm_model,
+            username: row.username,
+            phoneNumber: row.phone_number,
+            wakeTime: row.wake_time?.slice(0, 5) || '09:00', // slice to remove seconds
+            sleepTime: row.sleep_time?.slice(0, 5) || '23:00',
+            useVoiceAlarm: row.use_voice_alarm,
+            adaptiveTiming: row.adaptive_timing,
             createdAt: row.created_at,
             updatedAt: row.updated_at
         };

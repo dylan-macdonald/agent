@@ -31,11 +31,35 @@ class MockSmsService {
     }
 }
 
+class MockSettingsService {
+    async getSettings(_userId: string) {
+        return {
+            wakeTime: '08:00',
+            sleepTime: '22:00',
+            adaptiveTiming: false,
+            useVoiceAlarm: false
+        };
+    }
+}
+
+class MockSleepService {
+    async getSleepLogs(_userId: string, _days: number) {
+        return [];
+    }
+}
+
+class MockVoiceAlarmService {
+    async triggerAlarm(userId: string, _phone: string, msg: string) {
+        logger.info(`[MOCK VOICE] Alarm for ${userId}: ${msg}`);
+        return true;
+    }
+}
+
 // Mock Pool
 class MockPool {
     async query(text: string) {
-        if (text.includes("SELECT id FROM users")) {
-            return { rows: [{ id: "test-user-id" }] };
+        if (text.includes("SELECT id")) {
+            return { rows: [{ id: "test-user-id", phone_number: "+15551234567" }] };
         }
         return { rows: [] };
     }
@@ -48,6 +72,9 @@ async function verify() {
     const mockReminder = new MockReminderService() as any;
     const mockSms = new MockSmsService() as any;
     const mockDb = new MockPool() as any;
+    const mockSettings = new MockSettingsService() as any;
+    const mockSleep = new MockSleepService() as any;
+    const mockVoice = new MockVoiceAlarmService() as any;
 
     // 1. Test Service Logic directly
     logger.info("Test 1: CheckInService Generation");
@@ -57,7 +84,13 @@ async function verify() {
 
     // 2. Test Scheduler Logic
     logger.info("Test 2: CheckInScheduler Trigger");
-    const scheduler = new CheckInScheduler(service, mockDb);
+    const scheduler = new CheckInScheduler(
+        service,
+        mockDb,
+        mockSettings,
+        mockSleep,
+        mockVoice
+    );
 
     // We can't easily force the time to match strict equality in scheduler without hacking it
     // But we can check if `checkTime` runs without error.

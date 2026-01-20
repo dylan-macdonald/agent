@@ -10,12 +10,14 @@ import { Pool } from "pg";
 import { createBillingRouter } from "./api/routes/billing.js";
 import { createCostRouter } from "./api/routes/cost.js";
 import { createDashboardRouter } from "./api/routes/dashboard.js";
+import { createLlmRoutes } from "./api/routes/llm.js";
 import { createSmsRouter } from "./api/routes/sms.js";
 import { TwilioSmsProvider } from "./integrations/twilio.js";
 import { ElevenLabsVoiceProvider } from "./integrations/voice/elevenlabs-provider.js";
 import { OpenAiVoiceProvider } from "./integrations/voice/openai-provider.js";
 import { AssistantService } from "./services/assistant.js";
 import { BillingService } from "./services/billing.js";
+import { LlmService } from "./services/llm.js";
 import { CalendarService } from "./services/calendar.js";
 import { CheckInService } from "./services/checkin.js";
 import { ContextService } from "./services/context.js";
@@ -36,6 +38,7 @@ import { VoiceService } from "./services/voice.js";
 import { ReminderService } from "./services/reminder.js";
 import { ReminderScheduler } from "./services/reminder-scheduler.js";
 import { CheckInScheduler } from "./services/checkin-scheduler.js";
+import { VoiceAlarmService } from "./services/voice-alarm.js";
 import { GoalService } from "./services/goal.js";
 import { SettingsService } from "./services/settings.js";
 import { AppConfig } from "./types/index.js";
@@ -54,6 +57,7 @@ export class App {
   private assistantService!: AssistantService;
   private checkInService!: CheckInService;
   private checkInScheduler!: CheckInScheduler;
+  private voiceAlarmService!: VoiceAlarmService;
   private goalService!: GoalService;
   private sleepService!: SleepService;
   private workoutService!: WorkoutService;
@@ -65,7 +69,9 @@ export class App {
   private reminderScheduler!: ReminderScheduler;
   private settingsService!: SettingsService;
   private socketService!: SocketService;
+
   private billingService!: BillingService;
+  private llmService!: LlmService;
 
   constructor(private config: AppConfig) {
     this.express = express();
@@ -114,7 +120,9 @@ export class App {
     this.smsService = new SmsService(this.db, twilioProvider, this.smsQueue);
     this.costService = new CostService(this.db);
     this.settingsService = new SettingsService(this.db, this.redis);
+
     this.billingService = new BillingService(this.db);
+    this.llmService = new LlmService();
 
     // Initialize Assistant components
     const processor = new MessageProcessor();
@@ -129,7 +137,7 @@ export class App {
 
     // Initialize Tools
     this.toolService = new ToolService(this.redis);
-    this.toolService.registerTool(new WebSearchTool(this.redis));
+    this.toolService.registerTool(new WebSearchTool(this.redis, this.billingService));
     this.toolService.registerTool(new CalculatorTool());
     this.toolService.registerTool(new ScriptExecutionTool());
 
@@ -138,7 +146,18 @@ export class App {
     this.reminderScheduler = new ReminderScheduler(this.reminderService, this.smsService);
 
     this.checkInService = new CheckInService(this.calendarService, this.reminderService, this.smsService);
-    this.checkInScheduler = new CheckInScheduler(this.checkInService, this.db);
+
+    // Voice Alarm Service (requires billing for keys + public url for callbacks)
+    const publicUrl = process.env.PUBLIC_URL || "http://localhost:3000";
+    this.voiceAlarmService = new VoiceAlarmService(this.billingService, publicUrl);
+
+    this.checkInScheduler = new CheckInScheduler(
+      this.checkInService,
+      this.db,
+      this.settingsService,
+      this.sleepService,
+      this.voiceAlarmService
+    );
 
     this.goalService = new GoalService(this.db);
 
@@ -159,7 +178,11 @@ export class App {
       this.goalService,
       this.sleepService,
       this.workoutService,
-      this.mindfulnessService
+
+      this.mindfulnessService,
+      this.llmService,
+      this.settingsService,
+      this.billingService
     );
 
     // Initialize Voice components
@@ -211,6 +234,7 @@ export class App {
     );
     this.express.use("/api/cost", createCostRouter(this.costService));
     this.express.use("/api/billing", createBillingRouter(this.billingService));
+    this.express.use("/api/llm", createLlmRoutes(this.llmService, this.billingService));
 
     // Dashboard API routes
     this.express.use(

@@ -25,7 +25,7 @@ export function createBillingRouter(billingService: BillingService): Router {
         return;
       }
 
-      const validProviders = ['anthropic', 'openai', 'twilio', 'elevenlabs'];
+      const validProviders = ['anthropic', 'openai', 'twilio', 'elevenlabs', 'picovoice', 'exa'];
       if (!validProviders.includes(provider)) {
         res.status(400).json({ error: "Invalid provider" });
         return;

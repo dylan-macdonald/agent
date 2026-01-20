@@ -51,7 +51,7 @@ export const up = (pgm) => {
 
   // Add check constraint for valid providers
   pgm.addConstraint("user_api_keys", "user_api_keys_valid_provider", {
-    check: "provider IN ('anthropic', 'openai', 'twilio', 'elevenlabs', 'picovoice')",
+    check: "provider IN ('anthropic', 'openai', 'twilio', 'elevenlabs', 'picovoice', 'exa')",
   });
 };
 

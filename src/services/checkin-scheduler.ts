@@ -1,32 +1,25 @@
 import { logger } from "../utils/logger.js";
-
 import { CheckInService, CheckInType } from "./checkin.js";
+import { SettingsService } from "./settings.js";
+import { SleepService } from "./health/service.js";
+import { VoiceAlarmService } from "./voice-alarm.js";
 
-// Simple in-memory tracker for MVP to prevent double sending in same process runtime
-// In production, use Redis or DB
 const runLog: Record<string, Record<string, Date>> = {};
 
 export class CheckInScheduler {
     private intervalId: NodeJS.Timeout | null = null;
     private isRunning = false;
 
-    // Config (Hardcoded for MVP)
-    private readonly MORNING_HOUR = 9; // 9:00 AM
-    private readonly EVENING_HOUR = 17; // 5:00 PM
-
-    // We'll iterate through known users. 
-    // For MVP, since we don't have a robust user list in memory service, 
-    // we might need to query DB or just hardcode a test user if simpler.
-    // Let's assume we fetch users from DB or just support the active user context if passed?
-    // Let's query DB for all users for correctness.
-
     constructor(
         private checkInService: CheckInService,
-        private db: any // Injecting DB to fetch users
+        private db: any, // Injecting DB to fetch users
+        private settingsService: SettingsService,
+        private sleepService: SleepService,
+        private voiceAlarmService: VoiceAlarmService
     ) { }
 
     public start(): void {
-        if (this.isRunning) {return;}
+        if (this.isRunning) { return; }
         this.isRunning = true;
         logger.info("Starting Check-in Scheduler...");
 
@@ -45,59 +38,104 @@ export class CheckInScheduler {
 
     private async checkTime(): Promise<void> {
         const now = new Date();
-        const hour = now.getHours();
-        // date string key: YYYY-MM-DD
+        const currentHour = now.getHours();
+        const currentMinute = now.getMinutes();
         const today = now.toISOString().split('T')[0] || new Date().toDateString();
 
         try {
-            // 1. Fetch Users
-            const result = await this.db.query("SELECT id FROM users");
+            const result = await this.db.query("SELECT id, phone_number FROM users");
             const users = result.rows;
 
             for (const user of users) {
                 const userId = user.id;
+                if (!runLog[userId]) { runLog[userId] = {}; }
 
-                // Initialize log
-                if (!runLog[userId]) {runLog[userId] = {};}
+                const settings = await this.settingsService.getSettings(userId);
 
-                // Morning Check
-                if (hour === this.MORNING_HOUR) {
-                    // Check if already run today
+                // --- Morning Check-In Logic ---
+                let wakeHour = 9;
+                let wakeMinute = 0;
+
+                const wakeParts = (settings.wakeTime || '09:00').split(':').map(Number);
+                if (wakeParts.length >= 2 && wakeParts[0] !== undefined && wakeParts[1] !== undefined && !isNaN(wakeParts[0]) && !isNaN(wakeParts[1])) {
+                    wakeHour = wakeParts[0];
+                    wakeMinute = wakeParts[1];
+                }
+
+                if (settings.adaptiveTiming) {
+                    const logs = await this.sleepService.getSleepLogs(userId, 7);
+                    if (logs.length > 0) {
+                        const wakeMinutes = logs.map(l => {
+                            const d = new Date(l.endTime);
+                            return d.getHours() * 60 + d.getMinutes();
+                        });
+                        const avgMinutes = wakeMinutes.reduce((a, b) => a + b, 0) / wakeMinutes.length;
+                        wakeHour = Math.floor(avgMinutes / 60);
+                        wakeMinute = Math.round(avgMinutes % 60);
+                    }
+                }
+
+                if (currentHour === wakeHour && currentMinute === wakeMinute) {
                     if (!this.hasRun(userId, CheckInType.MORNING, today)) {
-                        await this.checkInService.performMorningCheckIn(userId);
+                        if (settings.useVoiceAlarm && user.phone_number) {
+                            await this.voiceAlarmService.triggerAlarm(
+                                userId,
+                                user.phone_number,
+                                "Good morning. It is time to wake up. Please say I am up to dismiss."
+                            );
+                        } else {
+                            await this.checkInService.performMorningCheckIn(userId);
+                        }
                         this.markRun(userId, CheckInType.MORNING);
                     }
                 }
 
-                // Evening Check
-                if (hour === this.EVENING_HOUR) {
+                // --- Evening Check-In Logic ---
+                let checkInHour = 21;
+                let checkInMinute = 0;
+
+                const sleepParts = (settings.sleepTime || '23:00').split(':').map(Number);
+                let sleepHour = 23;
+                let sleepMinute = 0;
+                if (sleepParts.length >= 2 && sleepParts[0] !== undefined && sleepParts[1] !== undefined && !isNaN(sleepParts[0]) && !isNaN(sleepParts[1])) {
+                    sleepHour = sleepParts[0];
+                    sleepMinute = sleepParts[1];
+                }
+
+                if (settings.adaptiveTiming) {
+                    const targetSleep = new Date();
+                    targetSleep.setHours(sleepHour, sleepMinute, 0, 0);
+                    targetSleep.setHours(targetSleep.getHours() - 1);
+                    checkInHour = targetSleep.getHours();
+                    checkInMinute = targetSleep.getMinutes();
+                } else if (settings.eveningCheckInTime) {
+                    const parts = settings.eveningCheckInTime.split(':').map(Number);
+                    if (parts.length >= 2 && parts[0] !== undefined && parts[1] !== undefined && !isNaN(parts[0]) && !isNaN(parts[1])) {
+                        checkInHour = parts[0];
+                        checkInMinute = parts[1];
+                    }
+                }
+
+                if (currentHour === checkInHour && currentMinute === checkInMinute) {
                     if (!this.hasRun(userId, CheckInType.EVENING, today)) {
                         await this.checkInService.performEveningCheckIn(userId);
                         this.markRun(userId, CheckInType.EVENING);
                     }
                 }
             }
-
         } catch (error) {
             logger.error("Error in CheckInScheduler", { error });
         }
     }
 
     private hasRun(userId: string, type: CheckInType, dateKey: string): boolean {
-        // Very basic check. 
-        // Logic: if runLog[userId][type] is set and matches today or just is set for today logic...
-        // Wait, runLog needs to store date.
-        // Simplified: runLog[userId][type] = timestamp of last run.
-        // If last run was today, return true.
-
         const lastRun = runLog[userId]?.[type];
-        if (!lastRun) {return false;}
-
+        if (!lastRun) { return false; }
         return lastRun.toISOString().split('T')[0] === dateKey;
     }
 
     private markRun(userId: string, type: CheckInType): void {
-        if (!runLog[userId]) {runLog[userId] = {};}
+        if (!runLog[userId]) { runLog[userId] = {}; }
         runLog[userId][type] = new Date();
     }
 }

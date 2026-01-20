@@ -14,6 +14,9 @@ import { MessageProcessor } from '../../services/message-processor.js';
 import { PatternService } from '../../services/pattern.js';
 import { ReminderService } from '../../services/reminder.js';
 import { SmsService } from '../../services/sms.js';
+import { LlmService } from '../../services/llm.js';
+import { SettingsService } from '../../services/settings.js';
+import { BillingService } from '../../services/billing.js';
 import { ToolService } from '../../services/tools/tool-service.js';
 import { ToolCategory } from '../../types/tool.js';
 
@@ -40,6 +43,9 @@ describe('Full System MVP Integration', () => {
     let mockDb: any;
     let mockRedis: any;
     let smsService: SmsService;
+    let llmService: LlmService;
+    let settingsService: SettingsService;
+    let billingService: BillingService;
 
     beforeEach(() => {
         mockDb = new MockPool();
@@ -103,6 +109,9 @@ describe('Full System MVP Integration', () => {
         const mindfulness = new MindfulnessService();
 
         smsService = { sendSms: vi.fn() } as any;
+        llmService = { generateResponse: vi.fn(), listModels: vi.fn() } as any;
+        settingsService = { getSettings: vi.fn(), updateSettings: vi.fn() } as any;
+        billingService = { getDecryptedKey: vi.fn() } as any;
 
         // Assembly
         assistant = new AssistantService(
@@ -117,7 +126,10 @@ describe('Full System MVP Integration', () => {
             goal,
             sleep,
             workout,
-            mindfulness
+            mindfulness,
+            llmService,
+            settingsService,
+            billingService
         );
     });
 

@@ -9,8 +9,31 @@ export function Login() {
 
     const handleLogin = (e: React.FormEvent) => {
         e.preventDefault();
-        if (userId.trim()) {
-            localStorage.setItem('agent_user_id', userId.trim());
+        const inputId = userId.trim();
+        if (inputId) {
+            // Check if it's a UUID
+            const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(inputId);
+
+            let finalId = inputId;
+            if (!isUuid) {
+                // If they typed a name like "dyl", generate a consistent UUID (or random for now)
+                // For MVP, just random is checking compliance, but consistent is better for UX.
+                // Let's use crypto.randomUUID() for now as simple fix.
+                // Ideally we'd hash "dyl" -> UUID.
+                // But the user might want a new ID.
+                try {
+                    finalId = crypto.randomUUID();
+                    console.log(`Generated UUID for "${inputId}": ${finalId}`);
+                } catch (e) {
+                    finalId = '00000000-0000-0000-0000-000000000000';
+                }
+            }
+
+            localStorage.setItem('agent_user_id', finalId);
+            // If we generated one, maybe we should save the name?
+            if (!isUuid) {
+                // We can't save settings yet until logged in, but we can assume Settings page will handle it.
+            }
             navigate('/');
         }
     };

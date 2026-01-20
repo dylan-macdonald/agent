@@ -6,6 +6,7 @@
  * management, and daily task support.
  */
 
+import "dotenv/config";
 import { getConfig } from "@/config/index.js";
 import { logger } from "@/utils/logger.js";
 

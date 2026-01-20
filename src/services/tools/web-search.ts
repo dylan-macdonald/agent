@@ -17,16 +17,15 @@ export class WebSearchTool implements Tool {
 
     private apiKey: string;
     private redis: Redis;
+    private billingService?: any; // strict typing would require importing BillingService, using any to avoid circular deps if interface not extracted
 
-    constructor(redis: Redis) {
+    constructor(redis: Redis, billingService?: any) {
         this.redis = redis;
+        this.billingService = billingService;
         this.apiKey = process.env.EXA_API_KEY || "";
-        if (!this.apiKey) {
-            logger.warn("EXA_API_KEY not found. Web search will use mock results.");
-        }
     }
 
-    async execute(args: { query: string }, _context?: any): Promise<string> {
+    async execute(args: { query: string }, context?: any): Promise<string> {
         const { query } = args;
         if (!query) {
             return "Please provide a search query.";
@@ -44,11 +43,30 @@ export class WebSearchTool implements Tool {
             logger.warn("Redis cache read failed", { error });
         }
 
+        // Resolve API Key
+        let effectiveKey = this.apiKey;
+        if (this.billingService && context?.userId) {
+            try {
+                const userKey = await this.billingService.getDecryptedKey(context.userId, 'exa');
+                if (userKey) {
+                    effectiveKey = userKey;
+                }
+            } catch (err) {
+                logger.warn("Failed to fetch user API key for web search", { error: err });
+            }
+        }
+
         let result: string;
-        if (!this.apiKey) {
-            result = this.mockSearch(query);
+        if (!effectiveKey) {
+            if (!this.apiKey) {
+                logger.warn("No Exa API key found (system or user). returning mock.");
+                result = this.mockSearch(query);
+            } else {
+                // Fallback to system key if user key failed but system key exists
+                result = await this.performSearch(query, this.apiKey);
+            }
         } else {
-            result = await this.performSearch(query);
+            result = await this.performSearch(query, effectiveKey);
         }
 
         // Set cache (24 hours)
@@ -66,12 +84,12 @@ export class WebSearchTool implements Tool {
         return `web_search:${hash}`;
     }
 
-    private async performSearch(query: string): Promise<string> {
+    private async performSearch(query: string, apiKey: string): Promise<string> {
         try {
             const response = await fetch("https://api.exa.ai/search", {
                 method: "POST",
                 headers: {
-                    "x-api-key": this.apiKey,
+                    "x-api-key": apiKey,
                     "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
