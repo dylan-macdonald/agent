@@ -4,7 +4,7 @@
  * Stores user preferences for privacy controls and notifications
  */
 
-exports.up = (pgm) => {
+export const up = (pgm) => {
     pgm.createTable('user_settings', {
         user_id: {
             type: 'uuid',
@@ -82,6 +82,6 @@ exports.up = (pgm) => {
     pgm.createIndex('user_settings', 'user_id');
 };
 
-exports.down = (pgm) => {
+export const down = (pgm) => {
     pgm.dropTable('user_settings');
 };

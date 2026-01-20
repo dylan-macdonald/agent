@@ -2,7 +2,7 @@
  * Migration: Add Reminders Table
  */
 
-exports.up = (pgm) => {
+export const up = (pgm) => {
     pgm.createTable('reminders', {
         id: {
             type: 'uuid',
@@ -58,6 +58,6 @@ exports.up = (pgm) => {
     pgm.createIndex('reminders', ['user_id', 'status']);
 };
 
-exports.down = (pgm) => {
+export const down = (pgm) => {
     pgm.dropTable('reminders');
 };

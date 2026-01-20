@@ -4,7 +4,7 @@
  * Creates tables for voice messages and privacy settings
  */
 
-exports.up = (pgm) => {
+export const up = (pgm) => {
   // Voice Privacy Settings
   pgm.createTable("voice_privacy_settings", {
     user_id: {
@@ -117,7 +117,7 @@ exports.up = (pgm) => {
   pgm.createIndex("voice_audit_log", "user_id");
 };
 
-exports.down = (pgm) => {
+export const down = (pgm) => {
   pgm.dropTable("voice_audit_log");
   pgm.dropTable("voice_messages");
   pgm.dropTable("voice_privacy_settings");
