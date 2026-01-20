@@ -54,7 +54,7 @@ export class VisionTool implements Tool {
             const fs = await import("fs/promises");
             const path = await import("path");
 
-            const today = new Date().toISOString().split('T')[0];
+            const today = new Date().toISOString().split('T')[0] || 'unknown';
             const timestamp = Date.now();
             const filename = `${timestamp}_${userId}.png`;
             const dir = path.join(process.cwd(), ".gemini", "screenshots", today);

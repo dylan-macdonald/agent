@@ -19,6 +19,16 @@ export interface ProviderBalance {
   error?: string;
 }
 
+interface OpenAIBillingResponse {
+  total_available?: number;
+  total_used?: number;
+}
+
+interface ElevenLabsSubscriptionResponse {
+  character_count?: number;
+  character_limit?: number;
+}
+
 const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || crypto.randomBytes(32).toString('hex');
 const ALGORITHM = 'aes-256-gcm';
 
@@ -38,7 +48,13 @@ export class BillingService {
   }
 
   private decrypt(encryptedData: string): string {
-    const [ivHex, authTagHex, encrypted] = encryptedData.split(':');
+    const parts = encryptedData.split(':');
+    if (parts.length !== 3) {
+      throw new Error('Invalid encrypted data format');
+    }
+    const ivHex = parts[0] as string;
+    const authTagHex = parts[1] as string;
+    const encrypted = parts[2] as string;
     const iv = Buffer.from(ivHex, 'hex');
     const authTag = Buffer.from(authTagHex, 'hex');
     const key = Buffer.from(ENCRYPTION_KEY.slice(0, 32).padEnd(32, '0'));
@@ -46,8 +62,7 @@ export class BillingService {
     const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
     decipher.setAuthTag(authTag);
 
-    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
+    const decrypted = decipher.update(encrypted, 'hex', 'utf8') + decipher.final('utf8');
     return decrypted;
   }
 
@@ -142,7 +157,7 @@ export class BillingService {
       try {
         const balance = await this.fetchProviderBalance(provider, apiKey);
         balances.push(balance);
-      } catch (err) {
+      } catch {
         balances.push({
           provider,
           unit: 'USD',
@@ -166,11 +181,11 @@ export class BillingService {
   private async fetchProviderBalance(provider: string, apiKey: string): Promise<ProviderBalance> {
     switch (provider) {
       case 'anthropic':
-        return this.fetchAnthropicBalance(apiKey);
+        return this.fetchAnthropicBalance();
       case 'openai':
         return this.fetchOpenAIBalance(apiKey);
       case 'twilio':
-        return this.fetchTwilioBalance(apiKey);
+        return this.fetchTwilioBalance();
       case 'elevenlabs':
         return this.fetchElevenLabsBalance(apiKey);
       default:
@@ -178,9 +193,8 @@ export class BillingService {
     }
   }
 
-  private async fetchAnthropicBalance(apiKey: string): Promise<ProviderBalance> {
-    // Anthropic doesn't have a public balance API, so we return a placeholder
-    // In production, you'd track usage locally or use their admin API if available
+  private fetchAnthropicBalance(): ProviderBalance {
+    // Anthropic doesn't have a public balance API
     return {
       provider: 'anthropic',
       unit: 'USD',
@@ -191,7 +205,6 @@ export class BillingService {
 
   private async fetchOpenAIBalance(apiKey: string): Promise<ProviderBalance> {
     try {
-      // OpenAI billing API - requires organization access
       const res = await fetch('https://api.openai.com/v1/dashboard/billing/credit_grants', {
         headers: {
           'Authorization': `Bearer ${apiKey}`,
@@ -200,7 +213,6 @@ export class BillingService {
       });
 
       if (!res.ok) {
-        // Try subscription endpoint as fallback
         return {
           provider: 'openai',
           unit: 'USD',
@@ -209,7 +221,7 @@ export class BillingService {
         };
       }
 
-      const data = await res.json();
+      const data = await res.json() as OpenAIBillingResponse;
       return {
         provider: 'openai',
         balance: data.total_available || 0,
@@ -227,10 +239,8 @@ export class BillingService {
     }
   }
 
-  private async fetchTwilioBalance(apiKey: string): Promise<ProviderBalance> {
-    // Twilio uses Account SID as the key identifier
-    // The actual auth token would be stored separately or together
-    // For now, return a message to check console
+  private fetchTwilioBalance(): ProviderBalance {
+    // Twilio requires Account SID + Auth Token
     return {
       provider: 'twilio',
       unit: 'USD',
@@ -251,7 +261,7 @@ export class BillingService {
         throw new Error('Failed to fetch subscription');
       }
 
-      const data = await res.json();
+      const data = await res.json() as ElevenLabsSubscriptionResponse;
       return {
         provider: 'elevenlabs',
         used: data.character_count || 0,

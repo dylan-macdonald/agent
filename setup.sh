@@ -348,15 +348,28 @@ setup_database() {
     echo ""
     read -p "Choose an option [3]: " db_choice
     db_choice=${db_choice:-3}
+    # Trim whitespace
+    db_choice=$(echo "$db_choice" | tr -d '[:space:]')
 
     case $db_choice in
         1|3)
             print_info "Attempting to create database..."
-            # Extract database name from URL
+            # Parse DATABASE_URL components
+            # Format: postgresql://user:pass@host:port/dbname or postgresql://user@host:port/dbname
             db_name=$(echo $DATABASE_URL | sed -n 's/.*\/\([^?]*\).*/\1/p')
+            db_host=$(echo $DATABASE_URL | sed -n 's/.*@\([^:\/]*\).*/\1/p')
+            db_port=$(echo $DATABASE_URL | sed -n 's/.*:\([0-9]*\)\/.*/\1/p')
+            db_user=$(echo $DATABASE_URL | sed -n 's/.*:\/\/\([^:@]*\).*/\1/p')
 
-            # Try to create database (will fail silently if exists)
-            createdb "$db_name" 2>/dev/null && print_success "Database '$db_name' created" || print_info "Database may already exist"
+            # Try to create database using psql (more reliable than createdb)
+            PGPASSWORD=$(echo $DATABASE_URL | sed -n 's/.*:\/\/[^:]*:\([^@]*\)@.*/\1/p')
+            if [ -n "$PGPASSWORD" ]; then
+                export PGPASSWORD
+                psql -h "$db_host" -p "$db_port" -U "$db_user" -d postgres -c "CREATE DATABASE $db_name;" 2>/dev/null && print_success "Database '$db_name' created" || print_info "Database may already exist"
+                unset PGPASSWORD
+            else
+                psql -h "$db_host" -p "$db_port" -U "$db_user" -d postgres -c "CREATE DATABASE $db_name;" 2>/dev/null && print_success "Database '$db_name' created" || print_info "Database may already exist"
+            fi
 
             if [ "$db_choice" = "3" ]; then
                 print_info "Running migrations..."

@@ -30,7 +30,7 @@ export function createDashboardRouter(
      */
     router.get('/:userId/calendar', async (req: Request, res: Response) => {
         try {
-            const { userId } = req.params;
+            const userId = req.params.userId as string;
             const startDate = req.query.start
                 ? new Date(req.query.start as string)
                 : new Date();
@@ -57,7 +57,7 @@ export function createDashboardRouter(
      */
     router.post('/:userId/calendar', async (req: Request, res: Response) => {
         try {
-            const { userId } = req.params;
+            const userId = req.params.userId as string;
             const { title, description, startTime, endTime, isAllDay, recurrenceRule, location } = req.body;
 
             const event = await calendarService.createEvent({
@@ -84,7 +84,8 @@ export function createDashboardRouter(
      */
     router.delete('/:userId/calendar/:eventId', async (req: Request, res: Response) => {
         try {
-            const { userId, eventId } = req.params;
+            const userId = req.params.userId as string;
+            const eventId = req.params.eventId as string;
             await calendarService.deleteEvent(userId, eventId);
             res.json({ success: true });
         } catch (error) {
@@ -101,7 +102,7 @@ export function createDashboardRouter(
      */
     router.get('/:userId/goals', async (req: Request, res: Response) => {
         try {
-            const { userId } = req.params;
+            const userId = req.params.userId as string;
             const goals = await goalService.getGoals(userId);
             res.json({ goals });
         } catch (error) {
@@ -116,15 +117,15 @@ export function createDashboardRouter(
      */
     router.post('/:userId/goals', async (req: Request, res: Response) => {
         try {
-            const { userId } = req.params;
+            const userId = req.params.userId as string;
             const { title, description, targetDate, metrics } = req.body;
 
             const goal = await goalService.createGoal({
                 userId,
                 title,
                 description,
-                targetDate: targetDate ? new Date(targetDate) : undefined,
-                metrics
+                metrics,
+                ...(targetDate && { targetDate: new Date(targetDate) })
             });
 
             res.status(201).json({ goal });
@@ -140,7 +141,7 @@ export function createDashboardRouter(
      */
     router.patch('/:userId/goals/:goalId/progress', async (req: Request, res: Response) => {
         try {
-            const { goalId } = req.params;
+            const goalId = req.params.goalId as string;
             const { progress } = req.body;
 
             await goalService.updateProgress(goalId, progress);
@@ -159,7 +160,7 @@ export function createDashboardRouter(
      */
     router.get('/:userId/reminders', async (req: Request, res: Response) => {
         try {
-            const { userId } = req.params;
+            const userId = req.params.userId as string;
             const reminders = await reminderService.getUserReminders(userId);
             res.json({ reminders });
         } catch (error) {
@@ -174,7 +175,7 @@ export function createDashboardRouter(
      */
     router.post('/:userId/reminders', async (req: Request, res: Response) => {
         try {
-            const { userId } = req.params;
+            const userId = req.params.userId as string;
             const { title, dueAt, isRecurring, recurrenceRule, deliveryMethod } = req.body;
 
             const reminder = await reminderService.createReminder({
@@ -201,7 +202,7 @@ export function createDashboardRouter(
      */
     router.get('/:userId/health/sleep', async (req: Request, res: Response) => {
         try {
-            const { userId } = req.params;
+            const userId = req.params.userId as string;
             const days = parseInt(req.query.days as string) || 7;
             const sleepLogs = await sleepService.getSleepLogs(userId, days);
             res.json({ sleepLogs });
@@ -217,7 +218,7 @@ export function createDashboardRouter(
      */
     router.post('/:userId/health/sleep', async (req: Request, res: Response) => {
         try {
-            const { userId } = req.params;
+            const userId = req.params.userId as string;
             const { startTime, endTime, quality, notes } = req.body;
 
             const sleepLog = await sleepService.logSleep({
@@ -242,7 +243,7 @@ export function createDashboardRouter(
      */
     router.get('/:userId/health/workouts', async (req: Request, res: Response) => {
         try {
-            const { userId } = req.params;
+            const userId = req.params.userId as string;
             const days = parseInt(req.query.days as string) || 7;
             const workouts = await workoutService.getWorkouts(userId, days);
             res.json({ workouts });
@@ -258,7 +259,7 @@ export function createDashboardRouter(
      */
     router.post('/:userId/health/workouts', async (req: Request, res: Response) => {
         try {
-            const { userId } = req.params;
+            const userId = req.params.userId as string;
             const { activityType, durationMins, caloriesBurned, notes, startedAt } = req.body;
 
             const workout = await workoutService.logWorkout({
@@ -267,7 +268,7 @@ export function createDashboardRouter(
                 durationMins,
                 caloriesBurned,
                 notes,
-                startedAt: startedAt ? new Date(startedAt) : undefined
+                ...(startedAt && { startedAt: new Date(startedAt) })
             });
 
             res.status(201).json({ workout });
@@ -283,7 +284,7 @@ export function createDashboardRouter(
      */
     router.get('/:userId/health/summary', async (req: Request, res: Response) => {
         try {
-            const { userId } = req.params;
+            const userId = req.params.userId as string;
             const days = parseInt(req.query.days as string) || 7;
 
             const [sleepLogs, workouts] = await Promise.all([
@@ -324,7 +325,7 @@ export function createDashboardRouter(
      */
     router.get('/:userId/settings', async (req: Request, res: Response) => {
         try {
-            const { userId } = req.params;
+            const userId = req.params.userId as string;
             const settings = await settingsService.getSettings(userId);
             res.json({ settings });
         } catch (error) {
@@ -339,7 +340,7 @@ export function createDashboardRouter(
      */
     router.patch('/:userId/settings', async (req: Request, res: Response) => {
         try {
-            const { userId } = req.params;
+            const userId = req.params.userId as string;
             const updates = req.body;
 
             const settings = await settingsService.updateSettings(userId, updates);
@@ -358,9 +359,8 @@ export function createDashboardRouter(
      */
     router.get('/:userId/overview', async (req: Request, res: Response) => {
         try {
-            const { userId } = req.params;
+            const userId = req.params.userId as string;
             const today = new Date();
-            const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
             const weekAhead = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
 
             const [events, goals, reminders, sleepLogs, workouts] = await Promise.all([
