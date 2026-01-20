@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Target, Plus, CheckCircle2, Circle, TrendingUp, Calendar as CalendarIcon, Loader2, AlertCircle, X } from 'lucide-react';
+import { Target, Plus, CheckCircle2, Loader2, AlertCircle, X } from 'lucide-react';
 import { api, type Goal } from '../lib/api';
 import { ProgressRing } from '../components/Chart';
 
@@ -19,8 +19,9 @@ export function Goals() {
         try {
             setLoading(true);
             setError(null);
-            const data = await api.getGoals(userId);
-            setGoals(data);
+            const { data, error: apiError } = await api.getGoals(userId);
+            if (apiError) throw new Error(apiError);
+            setGoals(data?.goals || []);
         } catch (err) {
             setError('Failed to load goals');
             console.error('Goals load error:', err);
@@ -42,19 +43,20 @@ export function Goals() {
 
     async function handleCreateGoal(title: string, targetDate: string | null) {
         try {
-            const newGoal = await api.createGoal(userId, {
+            const { data, error: apiError } = await api.createGoal(userId, {
                 title,
                 targetDate: targetDate || undefined,
             });
-            setGoals(prev => [...prev, newGoal]);
+            if (apiError || !data?.goal) throw new Error(apiError || 'Failed to create goal');
+            setGoals(prev => [...prev, data.goal]);
             setShowAddModal(false);
         } catch (err) {
             console.error('Failed to create goal:', err);
         }
     }
 
-    const activeGoals = goals.filter(g => g.status === 'active');
-    const completedGoals = goals.filter(g => g.status === 'completed');
+    const activeGoals = goals.filter(g => g.status === 'IN_PROGRESS');
+    const completedGoals = goals.filter(g => g.status === 'COMPLETED');
 
     // Calculate overall progress
     const overallProgress = useMemo(() => {
