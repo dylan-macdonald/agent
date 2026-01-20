@@ -7,6 +7,7 @@ import { Redis } from "ioredis";
 import morgan from "morgan";
 import { Pool } from "pg";
 
+import { createBillingRouter } from "./api/routes/billing.js";
 import { createCostRouter } from "./api/routes/cost.js";
 import { createDashboardRouter } from "./api/routes/dashboard.js";
 import { createSmsRouter } from "./api/routes/sms.js";
@@ -14,6 +15,7 @@ import { TwilioSmsProvider } from "./integrations/twilio.js";
 import { ElevenLabsVoiceProvider } from "./integrations/voice/elevenlabs-provider.js";
 import { OpenAiVoiceProvider } from "./integrations/voice/openai-provider.js";
 import { AssistantService } from "./services/assistant.js";
+import { BillingService } from "./services/billing.js";
 import { CalendarService } from "./services/calendar.js";
 import { CheckInService } from "./services/checkin.js";
 import { ContextService } from "./services/context.js";
@@ -63,6 +65,7 @@ export class App {
   private reminderScheduler!: ReminderScheduler;
   private settingsService!: SettingsService;
   private socketService!: SocketService;
+  private billingService!: BillingService;
 
   constructor(private config: AppConfig) {
     this.express = express();
@@ -111,6 +114,7 @@ export class App {
     this.smsService = new SmsService(this.db, twilioProvider, this.smsQueue);
     this.costService = new CostService(this.db);
     this.settingsService = new SettingsService(this.db, this.redis);
+    this.billingService = new BillingService(this.db);
 
     // Initialize Assistant components
     const processor = new MessageProcessor();
@@ -206,6 +210,7 @@ export class App {
       createSmsRouter(this.smsService, this.assistantService)
     );
     this.express.use("/api/cost", createCostRouter(this.costService));
+    this.express.use("/api/billing", createBillingRouter(this.billingService));
 
     // Dashboard API routes
     this.express.use(

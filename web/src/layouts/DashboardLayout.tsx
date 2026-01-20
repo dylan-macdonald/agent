@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate, Outlet, useLocation } from 'react-router-dom';
-import { LogOut, Home, MessageSquare, Calendar, Activity, Settings, Bot, Target } from 'lucide-react';
+import { LogOut, Home, MessageSquare, Calendar, Activity, Settings, Bot, Target, CreditCard } from 'lucide-react';
 
 export function DashboardLayout() {
     const navigate = useNavigate();
@@ -24,6 +24,7 @@ export function DashboardLayout() {
         if (location.pathname.startsWith('/calendar')) return 'Calendar';
         if (location.pathname.startsWith('/goals')) return 'Goals';
         if (location.pathname.startsWith('/health')) return 'Health & Wellness';
+        if (location.pathname.startsWith('/billing')) return 'Billing & API Keys';
         if (location.pathname.startsWith('/settings')) return 'Settings';
         return '';
     };
@@ -73,6 +74,12 @@ export function DashboardLayout() {
                         label="Health"
                         active={isActive('/health')}
                         onClick={() => navigate('/health')}
+                    />
+                    <NavItem
+                        icon={<CreditCard size={18} />}
+                        label="Billing"
+                        active={isActive('/billing')}
+                        onClick={() => navigate('/billing')}
                     />
                     <NavItem
                         icon={<Settings size={18} />}
