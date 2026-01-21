@@ -17,7 +17,7 @@ export class ConversationService {
   private readonly CACHE_PREFIX = "conversation:";
   private readonly DEFAULT_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
 
-  constructor(private redis: Redis) {}
+  constructor(private redis: Redis) { }
 
   /**
    * Get or create conversation state for a user
@@ -87,11 +87,34 @@ export class ConversationService {
       timestamp: new Date(),
     };
 
-    // For now, we just log it. In Phase 3C, we might want to save it to Postgres.
-    logger.debug("Conversation turn added", {
+    // Save to Redis list (capped at 50 messages)
+    const historyKey = `${this.CACHE_PREFIX}${fullTurn.userId}:history`;
+    const serialized = JSON.stringify(fullTurn);
+
+    // RPUSH to add to end, LTRIM to keep last 50
+    await this.redis.rpush(historyKey, serialized);
+    await this.redis.ltrim(historyKey, -50, -1);
+
+    logger.debug("Conversation turn recorded", {
       userId: fullTurn.userId,
       direction: fullTurn.direction,
       intent: fullTurn.intent,
+    });
+  }
+
+  /**
+   * Get conversation history
+   */
+  public async getHistory(userId: string, limit: number = 20): Promise<ConversationTurn[]> {
+    const historyKey = `${this.CACHE_PREFIX}${userId}:history`;
+    // Get last N messages
+    const raw = await this.redis.lrange(historyKey, -limit, -1);
+    return raw.map(str => {
+      const turn = JSON.parse(str);
+      return {
+        ...turn,
+        timestamp: new Date(turn.timestamp)
+      };
     });
   }
 

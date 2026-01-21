@@ -26,42 +26,54 @@
 
 ---
 
-## Project Overview
+## 🌟 Current Status & Vision
 
-### Mission
+### The Philosophy
+This project is **NOT a chatbot wrapper**. It is a **Self-Sufficient Personal Assistant**.
+**Goal**: An agent that operating with minimal user intervention. It proactively handles your life—scheduling, health, goals—while you focus on what matters. It doesn't just wait for commands; it manages itself and you.
 
-Build a comprehensive AI-powered personal assistant that acts as a proactive digital companion - handling scheduling, reminders, health tracking, goal management, and daily task support with minimal user intervention.
+### 🟢 What Currently Works (The Working Core)
 
-### MVP Definition
+#### 1. The Brain & Intelligence
+- **Smart Routing**: We optimized costs by 50%. A "Smart Router" analyzes every request:
+  - *Simple Tasks* → Fast/Cheap model (Haiku).
+  - *Complex Reasoning* → Powerful model (Sonnet/Opus).
+- **Memory Systems**:
+  - **Short-term**: Stores conversation history in Redis (Context-aware).
+  - **Long-term**: Stores facts, preferences, and patterns in Postgres.
+  - **Context**: The agent knows *who* you are and *what* you're doing.
 
-The MVP provides **genuine daily utility** through:
+#### 2. Interfaces (Ways to Interact)
+- **Web Dashboard**: A premium "Cyberpunk/Terminal" interface.
+  - *Chat*: Full markdown support, history, and real-time responses.
+  - *Settings*: Customize accent color, manage API keys (Anthropic/Twilio).
+- **Voice (Desktop)**: "Wake word" detection, Whisper STT, and ElevenLabs TTS.
+- **SMS**: Full two-way text capability (Twilio integration ready).
 
-- Two-way communication via SMS and voice
-- Memory-aware interactions (remembers context, preferences, patterns)
-- Task and reminder management
-- Basic goal tracking
-- Minimal web dashboard for overview and settings
+#### 3. Tools & Capabilities
+- **Web Search**: *"Search for creepers"* → Uses Exa.ai for real-time answers.
+- **Vision**: *"Look at this"* → Captures screen & uses GPT-4o Vision.
+- **Productivity**:
+  - **Calendar**: "Schedule a meeting...".
+  - **Reminders**: "Remind me to...".
+  - **Health**: "Log a workout...", "I slept 8 hours...".
 
-### Core Capabilities to Build
+### 🟡 Known Limitations (Needs Work)
+- **Proactivity is Basic**: Currently, check-ins are triggered by fixed schedules (Morning/Evening). The agent relies on these triggers rather than mostly autonomous decision making.
+- **Adaptive Logic**: We verify sleep/wake times, but the agent doesn't yet *fully* reorganize your day automatically based on energy levels.
+- **Voice Alarms**: The "Wake Up Call" feature is specified but not fully wired to the phone system yet.
 
-- **Memory System**: Remember user preferences, history, patterns, personal details
-- **Proactive Communication**: Self-initiating reminders without user prompting
-- **SMS/Text Integration**: Two-way text communication with natural language understanding
-- **Voice Interface**: Wake word, speech-to-text, text-to-speech on desktop
-- **Goal Tracking**: Monitor projects, habits, long-term objectives
-- **Health Monitoring**: Diet, exercise, wellness reminders
-- **Context Awareness**: Schedule, location, current priorities
+### 🔴 The Path to Agency (What We Need To Do)
+- **True Autonomy**: The agent needs to self-assign tasks properly. If you miss a goal, *it* should handle the rescheduling.
+- **Body Double Mode**: Active focus sessions where the agent "sits" with you.
+- **Deep Insights**: Correlating your health data (Sleep/Workouts) with your productivity output.
 
-### Design Principles
+---
 
-- **No Shortcuts**: Build everything properly
-- **Security First**: Encrypt all data in transit
-- **Genuine Utility**: Real daily-use tool, not a prototype
-- **No Dummy Data**: Placeholders only for testing
-- **Proactive**: Anticipate needs before user asks
-- **Continuous Integration**: Every MVP block integrates with prior blocks
-- **Continuous Testing**: Every feature tested before moving on
-- **Continuous Security**: Every feature respects encryption, auth, rate limiting
+## Design Principles
+- **Self-Managing**: The system handles its own errors and state.
+- **Privacy First**: All data is yours. Local-first where possible.
+- **No Fluff**: We build tools that actually work, not just demos.
 
 ---
 
@@ -566,3 +578,4 @@ The MVP provides **genuine daily utility** through:
 - [ ] Connect `LlmService` to Check-ins (Context-aware briefings)
 - [ ] Verify End-to-End
 | 2026-01-20T18:40:00Z | Antigravity         | **MVP-11 COMPLETE**: Optimizations & UI Polish. Merged Smart Router/Memory Gatekeeper into single LLM call (-50% API usage). Added Accent Color customization in Settings. Fixed "New Mission" Reset Logic. Refactored AssistantService for strict types. |
+| 2026-01-20T19:45:00Z | Antigravity         | **BUG FIXES & RESET**: Fixed "one-off message" issue by implementing Redis conversation history and passing it to LLM. Tightened `WORKOUT_LOG` regex to prevent false positives. Created `reset-db.ts` and intercepted full database reset. |

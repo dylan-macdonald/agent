@@ -84,13 +84,16 @@ export class AssistantService {
       entities: processingResult.entities,
     });
 
-    // 5. Generate response
+    // 5. Get history for context
+    const history = await this.conversationService.getHistory(userId, 10);
+
+    // 6. Generate response
     const llmResponse = await this.generateResponseInternal(
       userId,
       text,
       processingResult,
       context,
-      [] // History placeholder
+      history
     );
 
     const responseText = llmResponse.content;
@@ -163,13 +166,16 @@ export class AssistantService {
       entities: processingResult.entities,
     });
 
-    // 5. Generate response based on intent and context
+    // 5. Get history
+    const history = await this.conversationService.getHistory(userId, 10);
+
+    // 6. Generate response based on intent and context
     const llmResponse = await this.generateResponseInternal(
       userId,
       text,
       processingResult,
       context,
-      [] // History placeholder
+      history
     );
 
     const responseText = llmResponse.content;
@@ -221,7 +227,7 @@ export class AssistantService {
     result: ProcessingResult,
     context: any,
     _history: ConversationTurn[]
-  ): Promise<{ content: string; metadata?: { complexity?: string; memoryPotential?: boolean } }> {
+  ): Promise<{ content: string; metadata?: { complexity?: string | undefined; memoryPotential?: boolean | undefined } }> {
     logger.debug(`Generating response for: ${text}`);
 
     switch (result.intent) {
@@ -453,6 +459,9 @@ export class AssistantService {
             - Formatting: Use Markdown extensively (bold keys, code blocks).
             - Brevity: Be concise. No fluff.
             - Knowledge: If asked about yourself, describe your architecture.
+            
+            RECENT HISTORY:
+            ${_history.map(t => `${t.direction === MessageDirection.INBOUND ? 'User' : 'Assistant'} (${t.intent}): ${t.text}`).join('\n')}
             `,
             provider,
             model,

@@ -179,7 +179,17 @@ export class MessageProcessor {
     } else if (lowerText.includes('slept') || lowerText.includes('sleep log')) {
       intent = Intent.SLEEP_LOG;
       confidence = 0.85;
-    } else if (lowerText.includes('workout') || lowerText.includes('run') || lowerText.includes('ran') || lowerText.includes('running') || lowerText.includes('jog') || lowerText.includes('gym') || lowerText.includes('exercise')) {
+    } else if (
+      (lowerText.includes('workout') || lowerText.includes('gym') || lowerText.includes('exercise')) &&
+      (containsWord('log') || containsWord('tracked') || containsWord('did') || containsWord('went') || /\d+/.test(text))
+    ) {
+      intent = Intent.WORKOUT_LOG;
+      confidence = 0.85;
+    } else if (
+      (containsWord('ran') || containsWord('jogged') || containsWord('running')) &&
+      (/\d+\s*(?:mile|km|min|hour)/.test(lowerText) || containsWord('log'))
+    ) {
+      // Only match "run/ran" if it has distance/time OR "log"
       intent = Intent.WORKOUT_LOG;
       confidence = 0.85;
     } else if (lowerText.includes('meditate') || lowerText.includes('mindfulness') || lowerText.includes('breath')) {
@@ -268,6 +278,7 @@ export class MessageProcessor {
     // Web Search: "search for X", "who is X"
     if (
       lowerText.startsWith("search for") ||
+      lowerText.includes("web search") ||
       lowerText.startsWith("who is") ||
       (lowerText.startsWith("what is") && !lowerText.includes("+") && !lowerText.includes("*")) // Simple check to avoid math
     ) {

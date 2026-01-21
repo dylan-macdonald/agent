@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { MessageSquare, Send, User, Wifi, WifiOff, Loader2, Terminal, Paperclip } from 'lucide-react';
+import { Send, Wifi, WifiOff, Terminal, Paperclip } from 'lucide-react';
 import { socketClient, type ChatMessage } from '../lib/socket';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -129,7 +129,7 @@ export function Chat() {
                             <Terminal size={14} />
                         </div>
                         <div className="py-2 px-3 text-[var(--color-terminal-accent)] text-xs uppercase tracking-widest">
-                             > Processing...
+                            &gt; Processing...
                         </div>
                     </div>
                 )}

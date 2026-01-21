@@ -123,8 +123,8 @@ export class CheckInScheduler {
                     }
                 }
             }
-        } catch (error) {
-            logger.error("Error in CheckInScheduler", { error });
+        } catch (error: any) {
+            logger.error("Error in CheckInScheduler", { error: error instanceof Error ? error.message : JSON.stringify(error) });
         }
     }
 
