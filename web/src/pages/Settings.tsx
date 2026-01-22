@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Settings as SettingsIcon, Shield, Bell, Mic, Eye, Search, Code, Lock, Loader2, Check, AlertCircle, User, Cpu, Key, Clock } from 'lucide-react';
+import { Settings as SettingsIcon, Shield, Bell, Mic, Eye, Search, Code, Lock, Loader2, Check, AlertCircle, User, Cpu, Key, Clock, Palette } from 'lucide-react';
 import { api, type UserSettings } from '../lib/api';
 
 export function Settings() {
@@ -9,12 +9,10 @@ export function Settings() {
     const [error, setError] = useState<string | null>(null);
     const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
 
-    // Default to a hardcoded UUID for MVP if missing, or use stored.
-    // Ideally this comes from AuthContext. For now, we fix the "dyl" crash.
     const storedId = localStorage.getItem('agent_user_id');
     const userId = (storedId && storedId.length > 10 && storedId !== 'default-user')
         ? storedId
-        : '00000000-0000-0000-0000-000000000000'; // Fallback UUID
+        : '00000000-0000-0000-0000-000000000000';
 
     useEffect(() => {
         loadSettings();
@@ -42,7 +40,6 @@ export function Settings() {
         setSaving(settingKey);
         setError(null);
 
-        // Optimistic update
         setSettings(prev => prev ? { ...prev, [key]: value } : prev);
 
         try {
@@ -50,7 +47,6 @@ export function Settings() {
             setSaveSuccess(settingKey);
             setTimeout(() => setSaveSuccess(null), 1500);
         } catch (err) {
-            // Revert on error
             setSettings(prev => prev ? { ...prev, [key]: !value } : prev);
             setError(`Failed to update ${key}`);
             console.error('Settings update error:', err);
@@ -62,7 +58,10 @@ export function Settings() {
     if (loading) {
         return (
             <div className="flex items-center justify-center h-64">
-                <Loader2 className="animate-spin text-zinc-500" size={32} />
+                <div className="flex items-center gap-3 text-zinc-500">
+                    <div className="w-5 h-5 border-2 border-zinc-600 border-t-cyan-400 rounded-full animate-spin" />
+                    Loading settings...
+                </div>
             </div>
         );
     }
@@ -70,34 +69,33 @@ export function Settings() {
     return (
         <div className="max-w-2xl mx-auto space-y-6">
             {error && (
-                <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+                <div className="flex items-center gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
                     <AlertCircle size={16} />
                     {error}
                 </div>
             )}
 
             {/* Profile */}
-            <section>
-                <div className="flex items-center gap-2 mb-4">
-                    <User size={18} className="text-violet-400" />
-                    <h3 className="font-semibold">Profile & Personalization</h3>
-                </div>
-                <div className="rounded-xl bg-zinc-900 border border-zinc-800 p-5 space-y-4">
+            <Section
+                icon={<User size={18} className="text-violet-400" />}
+                title="Profile & Personalization"
+            >
+                <div className="p-5 space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-zinc-400 mb-1">
-                                Username / Nickname
+                            <label className="block text-sm font-medium text-zinc-400 mb-2">
+                                Display Name
                             </label>
                             <input
                                 type="text"
                                 value={settings?.username || ''}
                                 onChange={(e) => updateSetting('username', e.target.value)}
                                 placeholder="How should AI refer to you?"
-                                className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+                                className="w-full px-3 py-2.5 bg-zinc-800/50 border border-zinc-700/50 rounded-xl text-sm focus:outline-none focus:border-cyan-500/50 transition-colors"
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-zinc-400 mb-1">
+                            <label className="block text-sm font-medium text-zinc-400 mb-2">
                                 Phone Number
                             </label>
                             <input
@@ -105,139 +103,135 @@ export function Settings() {
                                 value={settings?.phoneNumber || ''}
                                 onChange={(e) => updateSetting('phoneNumber', e.target.value)}
                                 placeholder="+1234567890"
-                                className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+                                className="w-full px-3 py-2.5 bg-zinc-800/50 border border-zinc-700/50 rounded-xl text-sm focus:outline-none focus:border-cyan-500/50 transition-colors"
                             />
                         </div>
                     </div>
-                    <div className="mt-4 pt-4 border-t border-zinc-800">
-                        <label className="block text-sm font-medium text-zinc-400 mb-1">
-                            Terminal Accent Color
+                    <div className="pt-4 border-t border-zinc-800/50">
+                        <label className="flex items-center gap-2 text-sm font-medium text-zinc-400 mb-2">
+                            <Palette size={14} />
+                            Accent Color
                         </label>
                         <div className="flex gap-3">
                             <input
                                 type="text"
-                                placeholder="#00ff9d"
+                                placeholder="#22d3ee"
                                 defaultValue={localStorage.getItem('agent_accent_color') || '#22d3ee'}
                                 onChange={(e) => {
                                     const val = e.target.value;
                                     localStorage.setItem('agent_accent_color', val);
                                     document.documentElement.style.setProperty('--color-terminal-accent', val);
+                                    document.documentElement.style.setProperty('--color-accent', val);
                                 }}
-                                className="flex-1 px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 font-mono"
+                                className="flex-1 px-3 py-2.5 bg-zinc-800/50 border border-zinc-700/50 rounded-xl text-sm focus:outline-none focus:border-cyan-500/50 font-mono transition-colors"
                             />
-                            <div className="w-10 h-10 rounded border border-zinc-800 bg-[var(--color-terminal-accent)] shrink-0"></div>
+                            <div
+                                className="w-10 h-10 rounded-xl border border-zinc-700/50 shrink-0"
+                                style={{ backgroundColor: 'var(--color-accent)' }}
+                            />
                         </div>
-                        <div className="text-xs text-zinc-500 mt-1">
-                            Enter a Hex code (e.g. #00ff00) or RGB value. Updates instantly.
-                        </div>
+                        <p className="text-xs text-zinc-500 mt-2">
+                            Enter a hex code (e.g. #22d3ee). Changes apply instantly.
+                        </p>
                     </div>
                 </div>
-            </section>
+            </Section>
 
             {/* AI Configuration */}
-            <section>
-                <div className="flex items-center gap-2 mb-4">
-                    <Cpu size={18} className="text-pink-400" />
-                    <h3 className="font-semibold">AI Configuration</h3>
-                </div>
-                <div className="rounded-xl bg-zinc-900 border border-zinc-800 p-5 space-y-6">
-                    {/* Provider Select */}
+            <Section
+                icon={<Cpu size={18} className="text-pink-400" />}
+                title="AI Configuration"
+            >
+                <div className="p-5 space-y-6">
                     <div>
-                        <label className="block text-sm font-medium text-zinc-400 mb-2">
+                        <label className="block text-sm font-medium text-zinc-400 mb-3">
                             LLM Provider
                         </label>
-                        <div className="flex gap-4">
-                            <button
+                        <div className="grid grid-cols-3 gap-3">
+                            <ProviderButton
+                                name="Anthropic"
+                                subtitle="Claude 3.5/4.5"
+                                selected={settings?.llmProvider === 'anthropic'}
                                 onClick={() => updateSetting('llmProvider', 'anthropic')}
-                                className={`flex-1 p-3 rounded-lg border transition-all ${settings?.llmProvider === 'anthropic'
-                                    ? 'bg-violet-500/10 border-violet-500/50 text-violet-300'
-                                    : 'bg-zinc-950 border-zinc-800 hover:border-zinc-700'
-                                    }`}
-                            >
-                                <div className="font-medium text-sm">Anthropic</div>
-                                <div className="text-xs opacity-70">Claude 3.5/4.5</div>
-                            </button>
-                            <button
+                            />
+                            <ProviderButton
+                                name="OpenAI"
+                                subtitle="Coming soon"
                                 disabled
-                                className="flex-1 p-3 rounded-lg border border-zinc-900 bg-zinc-900/50 text-zinc-600 cursor-not-allowed opacity-50"
-                            >
-                                <div className="font-medium text-sm">OpenAI</div>
-                                <div className="text-xs opacity-50">Disabled</div>
-                            </button>
-                            <button
+                            />
+                            <ProviderButton
+                                name="Ollama"
+                                subtitle="Coming soon"
                                 disabled
-                                className="flex-1 p-3 rounded-lg border border-zinc-900 bg-zinc-900/50 text-zinc-600 cursor-not-allowed opacity-50"
-                            >
-                                <div className="font-medium text-sm">Ollama</div>
-                                <div className="text-xs opacity-50">Disabled</div>
-                            </button>
+                            />
                         </div>
                     </div>
 
-                    {/* Model Select */}
                     {settings?.llmProvider === 'anthropic' && (
                         <div>
                             <label className="block text-sm font-medium text-zinc-400 mb-2">
-                                Model Priority
+                                Model Selection
                             </label>
                             <select
                                 value={settings.llmModel || 'auto'}
                                 onChange={(e) => updateSetting('llmModel', e.target.value)}
-                                className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 text-zinc-200"
+                                className="w-full px-3 py-2.5 bg-zinc-800/50 border border-zinc-700/50 rounded-xl text-sm focus:outline-none focus:border-cyan-500/50 text-zinc-200 transition-colors"
                             >
-                                <option value="auto">✨ Smart Router (Auto-Select)</option>
+                                <option value="auto">Smart Router (Auto-Select)</option>
                                 <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5 (Fast)</option>
                                 <option value="claude-sonnet-4-5-20250929">Claude Sonnet 4.5 (Balanced)</option>
                                 <option value="claude-opus-4-5-20251101">Claude Opus 4.5 (Powerful)</option>
                             </select>
-                            <div className="mt-2 text-xs text-violet-400 flex items-center gap-1">
+                            <p className="mt-2 text-xs text-cyan-400/80 flex items-center gap-1.5">
                                 <Cpu size={12} />
-                                Smart Router uses Haiku to analyze complexity, then routes to Sonnet or Opus if needed.
-                            </div>
+                                Smart Router analyzes complexity and routes to the best model.
+                            </p>
                         </div>
                     )}
 
-                    <div className="border-t border-zinc-800 pt-6 space-y-6">
+                    <div className="border-t border-zinc-800/50 pt-6 space-y-5">
                         <ApiKeyInput
                             userId={userId}
                             provider={settings?.llmProvider || 'anthropic'}
                             label="Anthropic API Key"
-                            description="Required for Smart Router (Haiku/Sonnet/Opus)"
+                            description="Required for AI chat functionality"
                             isSecret={true}
                         />
-                        <div className="border-t border-zinc-800 pt-6 space-y-6">
-                            <h4 className="text-sm font-medium text-zinc-300">Voice & SMS Infrastructure</h4>
-                            <ApiKeyInput
-                                userId={userId}
-                                provider="twilio"
-                                label="Twilio Account SID"
-                                description="Required for SMS and Voice Calls"
-                            />
-                            <ApiKeyInput
-                                userId={userId}
-                                provider="twilio_auth_token"
-                                label="Twilio Auth Token"
-                                description="Required for Twilio authentication"
-                                isSecret={true}
-                            />
-                            <ApiKeyInput
-                                userId={userId}
-                                provider="elevenlabs"
-                                label="ElevenLabs API Key"
-                                description="Required for AI Voice (TTS)"
-                            />
+
+                        <div className="border-t border-zinc-800/50 pt-5">
+                            <h4 className="text-sm font-medium text-zinc-300 mb-4">Voice & SMS Infrastructure</h4>
+                            <div className="space-y-5">
+                                <ApiKeyInput
+                                    userId={userId}
+                                    provider="twilio"
+                                    label="Twilio Account SID"
+                                    description="Required for SMS and Voice Calls"
+                                />
+                                <ApiKeyInput
+                                    userId={userId}
+                                    provider="twilio_auth_token"
+                                    label="Twilio Auth Token"
+                                    description="Required for Twilio authentication"
+                                    isSecret={true}
+                                />
+                                <ApiKeyInput
+                                    userId={userId}
+                                    provider="elevenlabs"
+                                    label="ElevenLabs API Key"
+                                    description="Required for AI Voice (TTS)"
+                                />
+                            </div>
                         </div>
                     </div>
                 </div>
-            </section>
+            </Section>
 
             {/* Privacy Controls */}
-            <section>
-                <div className="flex items-center gap-2 mb-4">
-                    <Shield size={18} className="text-blue-400" />
-                    <h3 className="font-semibold">Privacy Controls</h3>
-                </div>
-                <div className="rounded-xl bg-zinc-900 border border-zinc-800 divide-y divide-zinc-800">
+            <Section
+                icon={<Shield size={18} className="text-blue-400" />}
+                title="Privacy Controls"
+            >
+                <div className="divide-y divide-zinc-800/50">
                     <ToggleSetting
                         icon={<Search size={18} />}
                         title="Web Search"
@@ -275,36 +269,35 @@ export function Settings() {
                         onToggle={(v) => updateSetting('voiceFeaturesEnabled', v)}
                     />
                 </div>
-            </section>
+            </Section>
 
             {/* Adaptive Schedule */}
-            <section>
-                <div className="flex items-center gap-2 mb-4">
-                    <Clock size={18} className="text-cyan-400" />
-                    <h3 className="font-semibold">Adaptive Schedule</h3>
-                </div>
-                <div className="rounded-xl bg-zinc-900 border border-zinc-800 divide-y divide-zinc-800">
+            <Section
+                icon={<Clock size={18} className="text-cyan-400" />}
+                title="Adaptive Schedule"
+            >
+                <div className="divide-y divide-zinc-800/50">
                     <div className="p-5 grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-zinc-400 mb-1">
+                            <label className="block text-sm font-medium text-zinc-400 mb-2">
                                 Wake Up Time
                             </label>
                             <input
                                 type="time"
                                 value={settings?.wakeTime || '09:00'}
                                 onChange={(e) => updateSetting('wakeTime', e.target.value)}
-                                className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+                                className="w-full px-3 py-2.5 bg-zinc-800/50 border border-zinc-700/50 rounded-xl text-sm focus:outline-none focus:border-cyan-500/50 transition-colors"
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-zinc-400 mb-1">
+                            <label className="block text-sm font-medium text-zinc-400 mb-2">
                                 Sleep Time
                             </label>
                             <input
                                 type="time"
                                 value={settings?.sleepTime || '23:00'}
                                 onChange={(e) => updateSetting('sleepTime', e.target.value)}
-                                className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+                                className="w-full px-3 py-2.5 bg-zinc-800/50 border border-zinc-700/50 rounded-xl text-sm focus:outline-none focus:border-cyan-500/50 transition-colors"
                             />
                         </div>
                     </div>
@@ -327,15 +320,14 @@ export function Settings() {
                         onToggle={(v) => updateSetting('adaptiveTiming', v)}
                     />
                 </div>
-            </section>
+            </Section>
 
             {/* Notifications */}
-            <section>
-                <div className="flex items-center gap-2 mb-4">
-                    <Bell size={18} className="text-amber-400" />
-                    <h3 className="font-semibold">Notifications</h3>
-                </div>
-                <div className="rounded-xl bg-zinc-900 border border-zinc-800 divide-y divide-zinc-800">
+            <Section
+                icon={<Bell size={18} className="text-amber-400" />}
+                title="Notifications"
+            >
+                <div className="divide-y divide-zinc-800/50">
                     <ToggleSetting
                         icon={<Bell size={18} />}
                         title="Morning Check-ins"
@@ -364,51 +356,49 @@ export function Settings() {
                         onToggle={(v) => updateSetting('reminderNotificationsEnabled', v)}
                     />
                 </div>
-            </section>
+            </Section>
 
             {/* Account */}
-            <section>
-                <div className="flex items-center gap-2 mb-4">
-                    <Lock size={18} className="text-emerald-400" />
-                    <h3 className="font-semibold">Account</h3>
-                </div>
-                <div className="rounded-xl bg-zinc-900 border border-zinc-800 p-5">
-                    <div className="flex items-center justify-between mb-4">
+            <Section
+                icon={<Lock size={18} className="text-emerald-400" />}
+                title="Account"
+            >
+                <div className="p-5 space-y-4">
+                    <div className="flex items-center justify-between">
                         <div>
-                            <div className="font-medium">User ID</div>
-                            <div className="text-sm text-zinc-500 font-mono">
+                            <div className="text-sm font-medium text-zinc-300">User ID</div>
+                            <div className="text-xs text-zinc-500 font-mono mt-1">
                                 {userId}
                             </div>
                         </div>
                     </div>
                     {settings?.timezone && (
-                        <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center justify-between">
                             <div>
-                                <div className="font-medium">Timezone</div>
-                                <div className="text-sm text-zinc-500">
+                                <div className="text-sm font-medium text-zinc-300">Timezone</div>
+                                <div className="text-xs text-zinc-500 mt-1">
                                     {settings.timezone}
                                 </div>
                             </div>
                         </div>
                     )}
-                    <div className="pt-4 border-t border-zinc-800">
-                        <div className="text-xs text-zinc-500">
+                    <div className="pt-4 border-t border-zinc-800/50">
+                        <p className="text-xs text-zinc-500">
                             Phone verification and additional account settings are managed via SMS commands.
-                        </div>
+                        </p>
                     </div>
                 </div>
-            </section>
+            </Section>
 
             {/* System Info */}
-            <section>
-                <div className="flex items-center gap-2 mb-4">
-                    <SettingsIcon size={18} className="text-zinc-400" />
-                    <h3 className="font-semibold">System</h3>
-                </div>
-                <div className="rounded-xl bg-zinc-900 border border-zinc-800 p-5 space-y-3">
+            <Section
+                icon={<SettingsIcon size={18} className="text-zinc-400" />}
+                title="System"
+            >
+                <div className="p-5 space-y-3">
                     <InfoRow label="Version" value="0.1.0 (MVP)" />
                     <InfoRow label="Backend" value="http://localhost:3000" />
-                    <InfoRow label="Dashboard" value="MVP 8A Complete" />
+                    <InfoRow label="Dashboard" value="v11.0" />
                     {settings?.updatedAt && (
                         <InfoRow
                             label="Last Updated"
@@ -416,8 +406,47 @@ export function Settings() {
                         />
                     )}
                 </div>
-            </section>
+            </Section>
         </div>
+    );
+}
+
+function Section({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
+    return (
+        <section>
+            <div className="flex items-center gap-2 mb-3">
+                {icon}
+                <h3 className="font-semibold">{title}</h3>
+            </div>
+            <div className="rounded-xl bg-zinc-900/50 border border-zinc-800/50 overflow-hidden">
+                {children}
+            </div>
+        </section>
+    );
+}
+
+function ProviderButton({ name, subtitle, selected = false, disabled = false, onClick }: {
+    name: string;
+    subtitle: string;
+    selected?: boolean;
+    disabled?: boolean;
+    onClick?: () => void;
+}) {
+    return (
+        <button
+            onClick={onClick}
+            disabled={disabled}
+            className={`p-3 rounded-xl border transition-all text-left ${
+                disabled
+                    ? 'bg-zinc-900/30 border-zinc-800/30 text-zinc-600 cursor-not-allowed opacity-50'
+                    : selected
+                        ? 'bg-cyan-500/10 border-cyan-500/50 text-cyan-300'
+                        : 'bg-zinc-800/30 border-zinc-700/50 hover:border-zinc-600 text-zinc-300'
+            }`}
+        >
+            <div className="font-medium text-sm">{name}</div>
+            <div className="text-xs opacity-70">{subtitle}</div>
+        </button>
     );
 }
 
@@ -433,7 +462,7 @@ function ToggleSetting({ icon, title, description, enabled, saving, saved, onTog
     return (
         <div className="flex items-center justify-between p-4">
             <div className="flex items-start gap-3">
-                <div className="p-2 rounded-lg bg-zinc-800 text-zinc-400">
+                <div className="p-2 rounded-lg bg-zinc-800/50 text-zinc-400">
                     {icon}
                 </div>
                 <div>
@@ -451,11 +480,13 @@ function ToggleSetting({ icon, title, description, enabled, saving, saved, onTog
                 <button
                     onClick={() => onToggle(!enabled)}
                     disabled={saving}
-                    className={`relative w-11 h-6 rounded-full transition-colors ${saving ? 'cursor-wait opacity-70' : 'cursor-pointer'
-                        } ${enabled ? 'bg-blue-500' : 'bg-zinc-700'}`}
+                    className={`relative w-11 h-6 rounded-full transition-colors ${
+                        saving ? 'cursor-wait opacity-70' : 'cursor-pointer'
+                    } ${enabled ? 'bg-cyan-500' : 'bg-zinc-700'}`}
                 >
-                    <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${enabled ? 'left-6' : 'left-1'
-                        }`} />
+                    <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${
+                        enabled ? 'left-6' : 'left-1'
+                    }`} />
                 </button>
             </div>
         </div>
@@ -466,12 +497,18 @@ function InfoRow({ label, value }: { label: string; value: string }) {
     return (
         <div className="flex items-center justify-between text-sm">
             <span className="text-zinc-500">{label}</span>
-            <span className="text-zinc-300 font-mono">{value}</span>
+            <span className="text-zinc-300 font-mono text-xs">{value}</span>
         </div>
     );
 }
 
-function ApiKeyInput({ userId, provider, label, description, isSecret = false }: { userId: string, provider: string, label: string, description: string, isSecret?: boolean }) {
+function ApiKeyInput({ userId, provider, label, description, isSecret = false }: {
+    userId: string;
+    provider: string;
+    label: string;
+    description: string;
+    isSecret?: boolean;
+}) {
     const [key, setKey] = useState('');
     const [saving, setSaving] = useState(false);
     const [success, setSuccess] = useState(false);
@@ -496,7 +533,7 @@ function ApiKeyInput({ userId, provider, label, description, isSecret = false }:
             <label className="block text-sm font-medium text-zinc-400 mb-1">
                 {label}
             </label>
-            <div className="text-xs text-zinc-500 mb-2">{description}</div>
+            <p className="text-xs text-zinc-500 mb-2">{description}</p>
             <div className="flex gap-2">
                 <div className="relative flex-1">
                     <Key size={14} className="absolute left-3 top-3 text-zinc-500" />
@@ -505,13 +542,13 @@ function ApiKeyInput({ userId, provider, label, description, isSecret = false }:
                         value={key}
                         onChange={(e) => setKey(e.target.value)}
                         placeholder="sk-..."
-                        className="w-full pl-9 pr-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+                        className="w-full pl-9 pr-3 py-2.5 bg-zinc-800/50 border border-zinc-700/50 rounded-xl text-sm focus:outline-none focus:border-cyan-500/50 transition-colors"
                     />
                 </div>
                 <button
                     onClick={handleSave}
                     disabled={saving || !key}
-                    className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                    className="px-4 py-2.5 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-sm font-medium transition-colors flex items-center gap-2"
                 >
                     {saving ? <Loader2 size={14} className="animate-spin" /> : 'Save'}
                     {success && <Check size={14} className="text-emerald-400" />}
