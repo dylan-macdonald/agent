@@ -1,7 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Heart, Moon, Dumbbell, Brain, TrendingUp, Plus, Loader2, AlertCircle, X, Clock } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Heart, Moon, Dumbbell, Brain, TrendingUp, Plus, Loader2, AlertCircle, X, Clock, Flame, Sparkles } from 'lucide-react';
 import { api, type SleepLog, type Workout } from '../lib/api';
 import { BarChart } from '../components/Chart';
+import { AnimatedPage, FadeIn, AnimatedList, AnimatedItem } from '../components/AnimatedPage';
+import { SkeletonStats, SkeletonChart } from '../components/Skeleton';
 
 export function Health() {
     const [sleepLogs, setSleepLogs] = useState<SleepLog[]>([]);
@@ -59,14 +62,12 @@ export function Health() {
         }
     }
 
-    // Helper to calculate sleep duration in hours
     const getSleepDuration = (log: SleepLog) => {
         const start = new Date(log.startTime).getTime();
         const end = new Date(log.endTime).getTime();
-        return (end - start) / (1000 * 60 * 60); // hours
+        return (end - start) / (1000 * 60 * 60);
     };
 
-    // Calculate stats
     const avgSleep = sleepLogs.length > 0
         ? (sleepLogs.reduce((acc, log) => acc + getSleepDuration(log), 0) / sleepLogs.length).toFixed(1)
         : '--';
@@ -74,7 +75,6 @@ export function Health() {
     const weeklyWorkouts = workouts.length;
     const totalWorkoutMinutes = workouts.reduce((acc, w) => acc + w.durationMins, 0);
 
-    // Prepare chart data
     const sleepChartData = useMemo(() => {
         const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
         const today = new Date();
@@ -120,224 +120,266 @@ export function Health() {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-64">
-                <Loader2 className="animate-spin text-zinc-500" size={32} />
+            <div className="max-w-4xl mx-auto space-y-6">
+                <SkeletonStats />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <SkeletonChart />
+                    <SkeletonChart />
+                </div>
             </div>
         );
     }
 
     return (
-        <div className="max-w-4xl mx-auto space-y-6">
+        <AnimatedPage className="max-w-4xl mx-auto space-y-6">
             {error && (
-                <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
-                    <AlertCircle size={16} />
-                    {error}
-                </div>
+                <FadeIn>
+                    <div className="flex items-center gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+                        <AlertCircle size={16} />
+                        {error}
+                    </div>
+                </FadeIn>
             )}
 
             {/* Overview Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <MetricCard
-                    icon={<Moon className="text-indigo-400" size={20} />}
-                    label="Avg Sleep"
-                    value={avgSleep}
-                    unit="hours/night"
-                    trend={sleepLogs.length > 0 ? `${sleepLogs.length} logs this week` : 'No data yet'}
-                    color="indigo"
-                />
-                <MetricCard
-                    icon={<Dumbbell className="text-emerald-400" size={20} />}
-                    label="Workouts"
-                    value={weeklyWorkouts.toString()}
-                    unit="this week"
-                    trend={totalWorkoutMinutes > 0 ? `${totalWorkoutMinutes} min total` : 'Log your first workout'}
-                    color="emerald"
-                />
-                <MetricCard
-                    icon={<Brain className="text-amber-400" size={20} />}
-                    label="Mindfulness"
-                    value="--"
-                    unit="minutes"
-                    trend="Available via Voice"
-                    color="amber"
-                />
-            </div>
+            <FadeIn>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <MetricCard
+                        icon={<Moon className="text-indigo-400" size={22} />}
+                        label="Avg Sleep"
+                        value={avgSleep}
+                        unit="hours/night"
+                        trend={sleepLogs.length > 0 ? `${sleepLogs.length} logs this week` : 'No data yet'}
+                        color="indigo"
+                        delay={0}
+                    />
+                    <MetricCard
+                        icon={<Dumbbell className="text-emerald-400" size={22} />}
+                        label="Workouts"
+                        value={weeklyWorkouts.toString()}
+                        unit="this week"
+                        trend={totalWorkoutMinutes > 0 ? `${totalWorkoutMinutes} min total` : 'Log your first workout'}
+                        color="emerald"
+                        delay={0.05}
+                    />
+                    <MetricCard
+                        icon={<Brain className="text-amber-400" size={22} />}
+                        label="Mindfulness"
+                        value="--"
+                        unit="minutes"
+                        trend="Available via Voice"
+                        color="amber"
+                        delay={0.1}
+                    />
+                </div>
+            </FadeIn>
 
             {/* Weekly Trends */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="rounded-xl bg-zinc-900 border border-zinc-800 p-5">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-sm font-medium text-zinc-400 flex items-center gap-2">
-                            <Moon size={14} className="text-indigo-400" />
-                            Sleep (hours/night)
-                        </h3>
+            <FadeIn delay={0.15}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="rounded-xl bg-zinc-900/50 border border-zinc-800/50 p-5">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-sm font-medium text-zinc-400 flex items-center gap-2">
+                                <Moon size={14} className="text-indigo-400" />
+                                Sleep (hours/night)
+                            </h3>
+                        </div>
+                        <BarChart
+                            data={sleepChartData}
+                            height={100}
+                            color="#818cf8"
+                            emptyMessage="No sleep data this week"
+                        />
                     </div>
-                    <BarChart
-                        data={sleepChartData}
-                        height={100}
-                        color="#818cf8"
-                        emptyMessage="No sleep data this week"
-                    />
-                </div>
-                <div className="rounded-xl bg-zinc-900 border border-zinc-800 p-5">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-sm font-medium text-zinc-400 flex items-center gap-2">
-                            <Dumbbell size={14} className="text-emerald-400" />
-                            Workouts (minutes/day)
-                        </h3>
+                    <div className="rounded-xl bg-zinc-900/50 border border-zinc-800/50 p-5">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-sm font-medium text-zinc-400 flex items-center gap-2">
+                                <Dumbbell size={14} className="text-emerald-400" />
+                                Workouts (minutes/day)
+                            </h3>
+                        </div>
+                        <BarChart
+                            data={workoutChartData}
+                            height={100}
+                            color="#34d399"
+                            emptyMessage="No workout data this week"
+                        />
                     </div>
-                    <BarChart
-                        data={workoutChartData}
-                        height={100}
-                        color="#34d399"
-                        emptyMessage="No workout data this week"
-                    />
                 </div>
-            </div>
+            </FadeIn>
 
             {/* Quick Actions */}
-            <div className="flex gap-3">
-                <button
-                    onClick={() => setShowSleepModal(true)}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 hover:bg-indigo-500/20 transition-colors"
-                >
-                    <Plus size={16} />
-                    Log Sleep
-                </button>
-                <button
-                    onClick={() => setShowWorkoutModal(true)}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 transition-colors"
-                >
-                    <Plus size={16} />
-                    Log Workout
-                </button>
-            </div>
+            <FadeIn delay={0.2}>
+                <div className="flex gap-3">
+                    <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => setShowSleepModal(true)}
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 hover:bg-indigo-500/20 transition-colors font-medium"
+                    >
+                        <Plus size={16} />
+                        Log Sleep
+                    </motion.button>
+                    <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => setShowWorkoutModal(true)}
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 transition-colors font-medium"
+                    >
+                        <Plus size={16} />
+                        Log Workout
+                    </motion.button>
+                </div>
+            </FadeIn>
 
             {/* Recent Activity */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Sleep Logs */}
-                <section>
-                    <h3 className="text-sm font-medium text-zinc-400 mb-3 flex items-center gap-2">
-                        <Moon size={14} />
-                        Recent Sleep
-                    </h3>
-                    <div className="rounded-xl bg-zinc-900 border border-zinc-800 divide-y divide-zinc-800">
-                        {sleepLogs.length > 0 ? (
-                            sleepLogs.slice(0, 5).map((log) => (
-                                <div key={log.id} className="p-4">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <div className="text-sm font-medium">
-                                                {getSleepDuration(log).toFixed(1)} hours
+            <FadeIn delay={0.25}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Sleep Logs */}
+                    <section>
+                        <h3 className="text-sm font-medium text-zinc-400 mb-3 flex items-center gap-2">
+                            <Moon size={14} className="text-indigo-400" />
+                            Recent Sleep
+                        </h3>
+                        <div className="rounded-xl bg-zinc-900/50 border border-zinc-800/50 divide-y divide-zinc-800/50 overflow-hidden">
+                            {sleepLogs.length > 0 ? (
+                                <AnimatedList>
+                                    {sleepLogs.slice(0, 5).map((log) => (
+                                        <AnimatedItem key={log.id}>
+                                            <div className="p-4 hover:bg-zinc-800/30 transition-colors">
+                                                <div className="flex items-center justify-between">
+                                                    <div>
+                                                        <div className="text-sm font-medium flex items-center gap-2">
+                                                            {getSleepDuration(log).toFixed(1)} hours
+                                                            {getSleepDuration(log) >= 7 && (
+                                                                <Sparkles size={12} className="text-emerald-400" />
+                                                            )}
+                                                        </div>
+                                                        <div className="text-xs text-zinc-500">
+                                                            {new Date(log.startTime).toLocaleDateString()}
+                                                        </div>
+                                                    </div>
+                                                    <QualityBadge quality={log.quality} />
+                                                </div>
                                             </div>
-                                            <div className="text-xs text-zinc-500">
-                                                {new Date(log.startTime).toLocaleDateString()}
-                                            </div>
-                                        </div>
-                                        <QualityBadge quality={log.quality} />
-                                    </div>
+                                        </AnimatedItem>
+                                    ))}
+                                </AnimatedList>
+                            ) : (
+                                <div className="p-8 text-center text-sm text-zinc-500">
+                                    No sleep logs yet. Start tracking your sleep!
                                 </div>
-                            ))
-                        ) : (
-                            <div className="p-6 text-center text-sm text-zinc-500">
-                                No sleep logs yet. Start tracking your sleep!
-                            </div>
-                        )}
-                    </div>
-                </section>
+                            )}
+                        </div>
+                    </section>
 
-                {/* Workout Logs */}
-                <section>
-                    <h3 className="text-sm font-medium text-zinc-400 mb-3 flex items-center gap-2">
-                        <Dumbbell size={14} />
-                        Recent Workouts
-                    </h3>
-                    <div className="rounded-xl bg-zinc-900 border border-zinc-800 divide-y divide-zinc-800">
-                        {workouts.length > 0 ? (
-                            workouts.slice(0, 5).map((workout) => (
-                                <div key={workout.id} className="p-4">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <div className="text-sm font-medium capitalize">
-                                                {workout.activityType}
+                    {/* Workout Logs */}
+                    <section>
+                        <h3 className="text-sm font-medium text-zinc-400 mb-3 flex items-center gap-2">
+                            <Dumbbell size={14} className="text-emerald-400" />
+                            Recent Workouts
+                        </h3>
+                        <div className="rounded-xl bg-zinc-900/50 border border-zinc-800/50 divide-y divide-zinc-800/50 overflow-hidden">
+                            {workouts.length > 0 ? (
+                                <AnimatedList>
+                                    {workouts.slice(0, 5).map((workout) => (
+                                        <AnimatedItem key={workout.id}>
+                                            <div className="p-4 hover:bg-zinc-800/30 transition-colors">
+                                                <div className="flex items-center justify-between">
+                                                    <div>
+                                                        <div className="text-sm font-medium capitalize flex items-center gap-2">
+                                                            {workout.activityType}
+                                                            {workout.durationMins >= 30 && (
+                                                                <Flame size={12} className="text-orange-400" />
+                                                            )}
+                                                        </div>
+                                                        <div className="text-xs text-zinc-500 flex items-center gap-2">
+                                                            <Clock size={10} />
+                                                            {workout.durationMins} min
+                                                            <span className="text-zinc-600">·</span>
+                                                            {new Date(workout.startedAt).toLocaleDateString()}
+                                                        </div>
+                                                    </div>
+                                                    {workout.caloriesBurned && (
+                                                        <span className="text-xs px-2 py-1 rounded-lg bg-emerald-500/10 text-emerald-400">
+                                                            {workout.caloriesBurned} cal
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
-                                            <div className="text-xs text-zinc-500 flex items-center gap-2">
-                                                <Clock size={10} />
-                                                {workout.durationMins} min
-                                                <span className="text-zinc-600">·</span>
-                                                {new Date(workout.startedAt).toLocaleDateString()}
-                                            </div>
-                                        </div>
-                                        {workout.caloriesBurned && (
-                                            <span className="text-xs px-2 py-1 rounded bg-emerald-500/10 text-emerald-400">
-                                                {workout.caloriesBurned} cal
-                                            </span>
-                                        )}
-                                    </div>
+                                        </AnimatedItem>
+                                    ))}
+                                </AnimatedList>
+                            ) : (
+                                <div className="p-8 text-center text-sm text-zinc-500">
+                                    No workouts logged yet. Get moving!
                                 </div>
-                            ))
-                        ) : (
-                            <div className="p-6 text-center text-sm text-zinc-500">
-                                No workouts logged yet. Get moving!
-                            </div>
-                        )}
-                    </div>
-                </section>
-            </div>
+                            )}
+                        </div>
+                    </section>
+                </div>
+            </FadeIn>
 
             {/* Info Section */}
-            <div className="rounded-xl bg-zinc-900 border border-zinc-800 p-5">
-                <div className="flex items-start gap-4">
-                    <div className="p-3 rounded-xl bg-zinc-800">
-                        <Heart size={24} className="text-rose-400" />
-                    </div>
-                    <div className="flex-1">
-                        <h3 className="font-semibold mb-1">Quick Commands</h3>
-                        <p className="text-sm text-zinc-400 mb-4">
-                            Track your health via natural language commands.
-                        </p>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-                            <div className="text-zinc-500 font-mono bg-zinc-800 rounded px-3 py-2">
-                                "I slept 8 hours last night"
-                            </div>
-                            <div className="text-zinc-500 font-mono bg-zinc-800 rounded px-3 py-2">
-                                "I ran for 30 minutes"
-                            </div>
-                            <div className="text-zinc-500 font-mono bg-zinc-800 rounded px-3 py-2">
-                                "How did I sleep this week?"
-                            </div>
-                            <div className="text-zinc-500 font-mono bg-zinc-800 rounded px-3 py-2">
-                                "Start a 5 minute meditation"
+            <FadeIn delay={0.3}>
+                <div className="rounded-xl bg-zinc-900/50 border border-zinc-800/50 p-5">
+                    <div className="flex items-start gap-4">
+                        <div className="p-3 rounded-xl bg-gradient-to-br from-rose-500/10 to-pink-500/10">
+                            <Heart size={24} className="text-rose-400" />
+                        </div>
+                        <div className="flex-1">
+                            <h3 className="font-semibold mb-1">Quick Commands</h3>
+                            <p className="text-sm text-zinc-400 mb-4">
+                                Track your health via natural language commands.
+                            </p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                                <code className="text-zinc-500 bg-zinc-800/50 rounded-lg px-3 py-2">
+                                    "I slept 8 hours last night"
+                                </code>
+                                <code className="text-zinc-500 bg-zinc-800/50 rounded-lg px-3 py-2">
+                                    "I ran for 30 minutes"
+                                </code>
+                                <code className="text-zinc-500 bg-zinc-800/50 rounded-lg px-3 py-2">
+                                    "How did I sleep this week?"
+                                </code>
+                                <code className="text-zinc-500 bg-zinc-800/50 rounded-lg px-3 py-2">
+                                    "Start a 5 minute meditation"
+                                </code>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
+            </FadeIn>
 
             {/* Modals */}
-            {showSleepModal && (
-                <SleepModal
-                    onClose={() => setShowSleepModal(false)}
-                    onSubmit={handleLogSleep}
-                />
-            )}
-            {showWorkoutModal && (
-                <WorkoutModal
-                    onClose={() => setShowWorkoutModal(false)}
-                    onSubmit={handleLogWorkout}
-                />
-            )}
-        </div>
+            <AnimatePresence>
+                {showSleepModal && (
+                    <SleepModal
+                        onClose={() => setShowSleepModal(false)}
+                        onSubmit={handleLogSleep}
+                    />
+                )}
+            </AnimatePresence>
+            <AnimatePresence>
+                {showWorkoutModal && (
+                    <WorkoutModal
+                        onClose={() => setShowWorkoutModal(false)}
+                        onSubmit={handleLogWorkout}
+                    />
+                )}
+            </AnimatePresence>
+        </AnimatedPage>
     );
 }
 
-function MetricCard({ icon, label, value, unit, trend, color }: {
+function MetricCard({ icon, label, value, unit, trend, color, delay = 0 }: {
     icon: React.ReactNode;
     label: string;
     value: string;
     unit: string;
     trend: string;
     color: string;
+    delay?: number;
 }) {
     const bgColors: Record<string, string> = {
         indigo: 'bg-indigo-500/10',
@@ -346,17 +388,22 @@ function MetricCard({ icon, label, value, unit, trend, color }: {
     };
 
     return (
-        <div className="rounded-xl bg-zinc-900 border border-zinc-800 p-5">
+        <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay, duration: 0.3 }}
+            className="rounded-xl bg-zinc-900/50 border border-zinc-800/50 p-5 hover:border-zinc-700/50 transition-colors"
+        >
             <div className="flex items-center justify-between mb-3">
-                <div className={`p-2 rounded-lg ${bgColors[color] || 'bg-zinc-800'}`}>
+                <div className={`p-2.5 rounded-xl ${bgColors[color] || 'bg-zinc-800'}`}>
                     {icon}
                 </div>
                 <TrendingUp size={16} className="text-zinc-600" />
             </div>
-            <div className="text-2xl font-bold mb-1">{value}</div>
+            <div className="text-3xl font-bold mb-1">{value}</div>
             <div className="text-xs text-zinc-500">{label} · {unit}</div>
             <div className="text-xs text-zinc-600 mt-2">{trend}</div>
-        </div>
+        </motion.div>
     );
 }
 
@@ -370,12 +417,11 @@ function QualityBadge({ quality }: { quality?: number }) {
         : 'bg-red-500/10 text-red-400';
 
     return (
-        <span className={`text-xs px-2 py-1 rounded ${colors}`}>
+        <span className={`text-xs px-2 py-1 rounded-lg ${colors}`}>
             {quality}/5
         </span>
     );
 }
-
 
 function SleepModal({ onClose, onSubmit }: {
     onClose: () => void;
@@ -397,23 +443,37 @@ function SleepModal({ onClose, onSubmit }: {
     };
 
     return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-zinc-900 border border-zinc-800 rounded-xl w-full max-w-md">
-                <div className="flex items-center justify-between p-4 border-b border-zinc-800">
-                    <h3 className="font-semibold">Log Sleep</h3>
-                    <button onClick={onClose} className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-white">
+        <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+            onClick={(e) => e.target === e.currentTarget && onClose()}
+        >
+            <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-md shadow-2xl"
+            >
+                <div className="flex items-center justify-between p-5 border-b border-zinc-800">
+                    <h3 className="font-semibold text-lg flex items-center gap-2">
+                        <Moon size={18} className="text-indigo-400" />
+                        Log Sleep
+                    </h3>
+                    <button onClick={onClose} className="p-2 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors">
                         <X size={18} />
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="p-4 space-y-4">
+                <form onSubmit={handleSubmit} className="p-5 space-y-4">
                     <div>
                         <label className="block text-sm text-zinc-400 mb-2">Date</label>
                         <input
                             type="date"
                             value={date}
                             onChange={(e) => setDate(e.target.value)}
-                            className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white focus:outline-none focus:border-indigo-500"
+                            className="w-full px-4 py-3 bg-zinc-800/50 border border-zinc-700/50 rounded-xl text-white focus:outline-none focus:border-indigo-500/50 transition-colors"
                         />
                     </div>
 
@@ -424,7 +484,7 @@ function SleepModal({ onClose, onSubmit }: {
                                 type="time"
                                 value={bedtime}
                                 onChange={(e) => setBedtime(e.target.value)}
-                                className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white focus:outline-none focus:border-indigo-500"
+                                className="w-full px-4 py-3 bg-zinc-800/50 border border-zinc-700/50 rounded-xl text-white focus:outline-none focus:border-indigo-500/50 transition-colors"
                             />
                         </div>
                         <div>
@@ -433,7 +493,7 @@ function SleepModal({ onClose, onSubmit }: {
                                 type="time"
                                 value={wakeTime}
                                 onChange={(e) => setWakeTime(e.target.value)}
-                                className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white focus:outline-none focus:border-indigo-500"
+                                className="w-full px-4 py-3 bg-zinc-800/50 border border-zinc-700/50 rounded-xl text-white focus:outline-none focus:border-indigo-500/50 transition-colors"
                             />
                         </div>
                     </div>
@@ -442,18 +502,20 @@ function SleepModal({ onClose, onSubmit }: {
                         <label className="block text-sm text-zinc-400 mb-2">Sleep quality</label>
                         <div className="flex gap-2">
                             {[1, 2, 3, 4, 5].map((q) => (
-                                <button
+                                <motion.button
                                     key={q}
                                     type="button"
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
                                     onClick={() => setQuality(q)}
-                                    className={`flex-1 py-2 rounded-lg text-sm transition-colors ${
+                                    className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-colors ${
                                         quality === q
                                             ? 'bg-indigo-500 text-white'
-                                            : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
+                                            : 'bg-zinc-800/50 text-zinc-400 hover:bg-zinc-700/50'
                                     }`}
                                 >
                                     {q}
-                                </button>
+                                </motion.button>
                             ))}
                         </div>
                     </div>
@@ -462,22 +524,24 @@ function SleepModal({ onClose, onSubmit }: {
                         <button
                             type="button"
                             onClick={onClose}
-                            className="flex-1 px-4 py-2 rounded-lg bg-zinc-800 text-zinc-300 hover:bg-zinc-700 transition-colors"
+                            className="flex-1 px-4 py-3 rounded-xl bg-zinc-800 text-zinc-300 hover:bg-zinc-700 transition-colors font-medium"
                         >
                             Cancel
                         </button>
-                        <button
+                        <motion.button
+                            whileHover={{ scale: 1.01 }}
+                            whileTap={{ scale: 0.99 }}
                             type="submit"
                             disabled={submitting}
-                            className="flex-1 px-4 py-2 rounded-lg bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                            className="flex-1 px-4 py-3 rounded-xl bg-indigo-500 text-white hover:bg-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 font-medium"
                         >
                             {submitting && <Loader2 size={16} className="animate-spin" />}
                             Log Sleep
-                        </button>
+                        </motion.button>
                     </div>
                 </form>
-            </div>
-        </div>
+            </motion.div>
+        </motion.div>
     );
 }
 
@@ -489,7 +553,16 @@ function WorkoutModal({ onClose, onSubmit }: {
     const [duration, setDuration] = useState(30);
     const [submitting, setSubmitting] = useState(false);
 
-    const activities = ['running', 'walking', 'cycling', 'swimming', 'weights', 'yoga', 'hiit', 'other'];
+    const activities = [
+        { value: 'running', label: 'Running', icon: '🏃' },
+        { value: 'walking', label: 'Walking', icon: '🚶' },
+        { value: 'cycling', label: 'Cycling', icon: '🚴' },
+        { value: 'swimming', label: 'Swimming', icon: '🏊' },
+        { value: 'weights', label: 'Weights', icon: '🏋️' },
+        { value: 'yoga', label: 'Yoga', icon: '🧘' },
+        { value: 'hiit', label: 'HIIT', icon: '⚡' },
+        { value: 'other', label: 'Other', icon: '💪' },
+    ];
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -499,27 +572,51 @@ function WorkoutModal({ onClose, onSubmit }: {
     };
 
     return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-zinc-900 border border-zinc-800 rounded-xl w-full max-w-md">
-                <div className="flex items-center justify-between p-4 border-b border-zinc-800">
-                    <h3 className="font-semibold">Log Workout</h3>
-                    <button onClick={onClose} className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-white">
+        <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+            onClick={(e) => e.target === e.currentTarget && onClose()}
+        >
+            <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-md shadow-2xl"
+            >
+                <div className="flex items-center justify-between p-5 border-b border-zinc-800">
+                    <h3 className="font-semibold text-lg flex items-center gap-2">
+                        <Dumbbell size={18} className="text-emerald-400" />
+                        Log Workout
+                    </h3>
+                    <button onClick={onClose} className="p-2 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors">
                         <X size={18} />
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="p-4 space-y-4">
+                <form onSubmit={handleSubmit} className="p-5 space-y-4">
                     <div>
                         <label className="block text-sm text-zinc-400 mb-2">Activity</label>
-                        <select
-                            value={activityType}
-                            onChange={(e) => setActivityType(e.target.value)}
-                            className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white focus:outline-none focus:border-emerald-500"
-                        >
+                        <div className="grid grid-cols-4 gap-2">
                             {activities.map((a) => (
-                                <option key={a} value={a} className="capitalize">{a}</option>
+                                <motion.button
+                                    key={a.value}
+                                    type="button"
+                                    whileHover={{ scale: 1.03 }}
+                                    whileTap={{ scale: 0.97 }}
+                                    onClick={() => setActivityType(a.value)}
+                                    className={`p-3 rounded-xl text-center transition-colors ${
+                                        activityType === a.value
+                                            ? 'bg-emerald-500/20 border border-emerald-500/30'
+                                            : 'bg-zinc-800/50 border border-transparent hover:border-zinc-700'
+                                    }`}
+                                >
+                                    <div className="text-xl mb-1">{a.icon}</div>
+                                    <div className="text-xs text-zinc-400">{a.label}</div>
+                                </motion.button>
                             ))}
-                        </select>
+                        </div>
                     </div>
 
                     <div>
@@ -530,7 +627,7 @@ function WorkoutModal({ onClose, onSubmit }: {
                             onChange={(e) => setDuration(parseInt(e.target.value) || 0)}
                             min={1}
                             max={300}
-                            className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white focus:outline-none focus:border-emerald-500"
+                            className="w-full px-4 py-3 bg-zinc-800/50 border border-zinc-700/50 rounded-xl text-white focus:outline-none focus:border-emerald-500/50 transition-colors"
                         />
                     </div>
 
@@ -538,21 +635,23 @@ function WorkoutModal({ onClose, onSubmit }: {
                         <button
                             type="button"
                             onClick={onClose}
-                            className="flex-1 px-4 py-2 rounded-lg bg-zinc-800 text-zinc-300 hover:bg-zinc-700 transition-colors"
+                            className="flex-1 px-4 py-3 rounded-xl bg-zinc-800 text-zinc-300 hover:bg-zinc-700 transition-colors font-medium"
                         >
                             Cancel
                         </button>
-                        <button
+                        <motion.button
+                            whileHover={{ scale: 1.01 }}
+                            whileTap={{ scale: 0.99 }}
                             type="submit"
                             disabled={submitting}
-                            className="flex-1 px-4 py-2 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                            className="flex-1 px-4 py-3 rounded-xl bg-emerald-500 text-white hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 font-medium"
                         >
                             {submitting && <Loader2 size={16} className="animate-spin" />}
                             Log Workout
-                        </button>
+                        </motion.button>
                     </div>
                 </form>
-            </div>
-        </div>
+            </motion.div>
+        </motion.div>
     );
 }
