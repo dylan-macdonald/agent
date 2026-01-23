@@ -127,6 +127,9 @@ export class AssistantService {
       });
     }
 
+    // 8. Auto-save detected desires, interests, and goals for autonomous agent
+    await this.saveDetectedDesiresAndInterests(userId, llmResponse.metadata, text);
+
     return responseText;
   }
 
@@ -215,6 +218,9 @@ export class AssistantService {
         },
       });
     }
+
+    // 9. Auto-save detected desires, interests, and goals for autonomous agent
+    await this.saveDetectedDesiresAndInterests(userId, llmResponse.metadata, text);
   }
 
   /**
@@ -227,7 +233,19 @@ export class AssistantService {
     result: ProcessingResult,
     context: any,
     _history: ConversationTurn[]
-  ): Promise<{ content: string; metadata?: { complexity?: string | undefined; memoryPotential?: boolean | undefined } }> {
+  ): Promise<{
+    content: string;
+    metadata?: {
+      complexity?: string | undefined;
+      memoryPotential?: boolean | undefined;
+      containsDesire?: boolean | undefined;
+      containsInterest?: boolean | undefined;
+      containsGoal?: boolean | undefined;
+      extractedDesire?: string | undefined;
+      extractedInterest?: string | undefined;
+      extractedGoal?: string | undefined;
+    }
+  }> {
     logger.debug(`Generating response for: ${text}`);
 
     switch (result.intent) {
@@ -468,12 +486,18 @@ export class AssistantService {
             apiKey
           );
 
-          // Ensure metadata is correctly typed or fallback to undefined
+          // Return response with all metadata including desire/interest/goal detection
           return {
             content: response.content,
             metadata: {
               complexity: response.metadata?.complexity,
-              memoryPotential: response.metadata?.memoryPotential
+              memoryPotential: response.metadata?.memoryPotential,
+              containsDesire: response.metadata?.containsDesire,
+              containsInterest: response.metadata?.containsInterest,
+              containsGoal: response.metadata?.containsGoal,
+              extractedDesire: response.metadata?.extractedDesire,
+              extractedInterest: response.metadata?.extractedInterest,
+              extractedGoal: response.metadata?.extractedGoal
             }
           };
         } catch (error) {
@@ -498,6 +522,103 @@ export class AssistantService {
         return `The tool '${toolName}' requires your permission to run. Do you approve?`;
       }
       throw error;
+    }
+  }
+
+  /**
+   * Auto-save detected desires, interests, and goals from conversation
+   * This feeds the autonomous agent's understanding of the user
+   */
+  private async saveDetectedDesiresAndInterests(
+    userId: string,
+    metadata: {
+      containsDesire?: boolean;
+      containsInterest?: boolean;
+      containsGoal?: boolean;
+      extractedDesire?: string;
+      extractedInterest?: string;
+      extractedGoal?: string;
+    } | undefined,
+    originalText: string
+  ): Promise<void> {
+    if (!metadata) return;
+
+    const savePromises: Promise<any>[] = [];
+
+    // Save detected desire
+    if (metadata.containsDesire && metadata.extractedDesire) {
+      logger.info(`Detected desire from user: "${metadata.extractedDesire}"`);
+      savePromises.push(
+        this.memoryService.createMemory({
+          userId,
+          type: MemoryType.PREFERENCE, // Using PREFERENCE for desires
+          content: metadata.extractedDesire,
+          importance: 4, // High importance - desires are key for autonomy
+          tags: ["desire", "want", "autonomous-detected"],
+          metadata: {
+            custom: {
+              detectionSource: "llm_judge",
+              originalMessage: originalText,
+              detectedAt: new Date().toISOString(),
+              category: "desire"
+            }
+          }
+        })
+      );
+    }
+
+    // Save detected interest
+    if (metadata.containsInterest && metadata.extractedInterest) {
+      logger.info(`Detected interest from user: "${metadata.extractedInterest}"`);
+      savePromises.push(
+        this.memoryService.createMemory({
+          userId,
+          type: MemoryType.PREFERENCE, // Using PREFERENCE for interests
+          content: metadata.extractedInterest,
+          importance: 3, // Medium-high importance
+          tags: ["interest", "hobby", "autonomous-detected"],
+          metadata: {
+            custom: {
+              detectionSource: "llm_judge",
+              originalMessage: originalText,
+              detectedAt: new Date().toISOString(),
+              category: "interest"
+            }
+          }
+        })
+      );
+    }
+
+    // Save detected goal (but don't create a formal goal - that's more intrusive)
+    if (metadata.containsGoal && metadata.extractedGoal) {
+      logger.info(`Detected goal from user: "${metadata.extractedGoal}"`);
+      savePromises.push(
+        this.memoryService.createMemory({
+          userId,
+          type: MemoryType.PREFERENCE, // Using PREFERENCE for goals too
+          content: metadata.extractedGoal,
+          importance: 4, // High importance
+          tags: ["goal", "aspiration", "autonomous-detected"],
+          metadata: {
+            custom: {
+              detectionSource: "llm_judge",
+              originalMessage: originalText,
+              detectedAt: new Date().toISOString(),
+              category: "goal"
+            }
+          }
+        })
+      );
+    }
+
+    // Execute all saves in parallel
+    if (savePromises.length > 0) {
+      try {
+        await Promise.all(savePromises);
+        logger.debug(`Saved ${savePromises.length} autonomous detections for user`);
+      } catch (error) {
+        logger.error("Failed to save detected desires/interests/goals", { error });
+      }
     }
   }
 
