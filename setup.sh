@@ -220,20 +220,26 @@ setup_environment() {
 
     print_success "Redis configuration saved"
 
+    # Required API keys
+    echo ""
+    echo -e "${BOLD}Required API Keys:${NC}"
+
+    read -p "Anthropic API Key (required): " -s anthropic_key
+    echo ""
+    if [ -n "$anthropic_key" ]; then
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            sed -i '' "s/ANTHROPIC_API_KEY=.*/ANTHROPIC_API_KEY=$anthropic_key/" .env
+        else
+            sed -i "s/ANTHROPIC_API_KEY=.*/ANTHROPIC_API_KEY=$anthropic_key/" .env
+        fi
+        print_success "Anthropic API key saved"
+    else
+        print_warning "Anthropic API key is required for AI functionality"
+    fi
+
     # Optional API keys
     echo ""
-    echo -e "${BOLD}API Keys (optional - press Enter to skip):${NC}"
-
-    read -p "OpenAI API Key: " -s openai_key
-    echo ""
-    if [ -n "$openai_key" ]; then
-        if [[ "$OSTYPE" == "darwin"* ]]; then
-            sed -i '' "s/OPENAI_API_KEY=.*/OPENAI_API_KEY=$openai_key/" .env
-        else
-            sed -i "s/OPENAI_API_KEY=.*/OPENAI_API_KEY=$openai_key/" .env
-        fi
-        print_success "OpenAI API key saved"
-    fi
+    echo -e "${BOLD}Optional API Keys (press Enter to skip):${NC}"
 
     read -p "Twilio Account SID: " twilio_sid
     if [ -n "$twilio_sid" ]; then
@@ -257,7 +263,13 @@ setup_environment() {
 
     echo ""
     print_success "Environment configuration complete!"
-    print_info "You can edit .env later to add more API keys (ElevenLabs, Picovoice, etc.)"
+    print_info "You can edit .env later to add more API keys (ElevenLabs, Porcupine, etc.)"
+
+    if [ -z "$anthropic_key" ]; then
+        echo ""
+        print_warning "IMPORTANT: Add your Anthropic API key to .env before starting the app"
+        print_info "Get one at: https://console.anthropic.com/settings/keys"
+    fi
 }
 
 # ============================================================================
