@@ -16,7 +16,7 @@ import { createSmsRouter } from "./api/routes/sms.js";
 import { createVoiceRouter } from "./api/routes/voice.js";
 import { TwilioSmsProvider } from "./integrations/twilio.js";
 import { ElevenLabsVoiceProvider } from "./integrations/voice/elevenlabs-provider.js";
-import { OpenAiVoiceProvider } from "./integrations/voice/openai-provider.js";
+// Note: OpenAI STT removed - use local STT solution instead
 import { AssistantService } from "./services/assistant.js";
 import { BillingService } from "./services/billing.js";
 import { LlmService } from "./services/llm.js";
@@ -203,15 +203,16 @@ export class App {
     );
 
     // Initialize Voice components
-    const openAiApiKey = process.env.OPENAI_API_KEY || "";
     const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY || "";
 
-    const sttProvider = new OpenAiVoiceProvider({ apiKey: openAiApiKey });
+    // TODO: Implement local STT provider (Whisper.cpp, Vosk, etc.)
+    // For now, voice service will need STT provider to be null or use a local implementation
     const ttsProvider = new ElevenLabsVoiceProvider({
       apiKey: elevenLabsApiKey,
     });
 
-    this.voiceService = new VoiceService(this.db, sttProvider, ttsProvider);
+    // STT temporarily disabled - use local solution
+    this.voiceService = new VoiceService(this.db, null as any, ttsProvider);
 
     // Initialize Socket service
     this.socketService = new SocketService(
@@ -220,8 +221,8 @@ export class App {
       this.voiceService
     );
 
-    // Register Vision Tool (requires socket service)
-    this.toolService.registerTool(new VisionTool(this.socketService));
+    // Register Vision Tool (requires socket service and billing service)
+    this.toolService.registerTool(new VisionTool(this.socketService, this.billingService));
 
     // Initialize Autonomous Agent (the "brain" that thinks independently)
     this.autonomousAgent = new AutonomousAgentService(

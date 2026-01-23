@@ -47,12 +47,12 @@ This project is **NOT a chatbot wrapper**. It is a **Self-Sufficient Personal As
 - **Web Dashboard**: A premium "Cyberpunk/Terminal" interface.
   - *Chat*: Full markdown support, history, and real-time responses.
   - *Settings*: Customize accent color, manage API keys (Anthropic/Twilio).
-- **Voice (Desktop)**: "Wake word" detection, Whisper STT, and ElevenLabs TTS.
+- **Voice (Desktop)**: "Wake word" detection, Local STT, and ElevenLabs TTS.
 - **SMS**: Full two-way text capability (Twilio integration ready).
 
 #### 3. Tools & Capabilities
-- **Web Search**: *"Search for creepers"* → Uses Exa.ai for real-time answers.
-- **Vision**: *"Look at this"* → Captures screen & uses GPT-4o Vision.
+- **Web Search**: *"Search for information"* → Uses Claude's built-in web search for real-time answers.
+- **Vision**: *"Look at this"* → Captures screen & uses Claude's vision capabilities.
 - **Productivity**:
   - **Calendar**: "Schedule a meeting...".
   - **Reminders**: "Remind me to...".
@@ -175,15 +175,14 @@ This project is **NOT a chatbot wrapper**. It is a **Self-Sufficient Personal As
 - [x] **TEST**: Wake word detected reliably (Verified locally)
 - [ ] **TEST**: False positive rate acceptable
 
-### 4B. Speech-to-Text (COMPLETE)
+### 4B. Speech-to-Text (IN PROGRESS - Local STT)
 
 - [x] Design STT provider interface (IVoiceProvider)
-- [x] Create OpenAI Whisper provider scaffold (openai-provider.ts)
-- [x] Implement Whisper API integration
+- [ ] Implement local STT solution (Whisper.cpp, Vosk, or similar)
 - [x] Build audio buffer handling for recording (AudioManager buffering)
 - [x] Create full audio capture after wake word
 - [x] **TEST**: Audio captures correctly after wake word (Streaming implemented)
-- [ ] **TEST**: Whisper transcribes accurately
+- [ ] **TEST**: Local STT transcribes accurately
 - [ ] **TEST**: Transcriptions integrate with NLU
 
 ### 4C. Text-to-Speech (COMPLETE)
@@ -230,7 +229,7 @@ This project is **NOT a chatbot wrapper**. It is a **Self-Sufficient Personal As
   1. Wake word detected → notify backend
   2. Backend → start full audio capture
   3. Desktop agent → capture and stream audio
-  4. Backend → Whisper transcription
+  4. Backend → Local STT transcription
   5. Backend → NLU processing (reuses MVP-3)
   6. Backend → Generate response
   7. Backend → ElevenLabs synthesis
@@ -260,9 +259,9 @@ This project is **NOT a chatbot wrapper**. It is a **Self-Sufficient Personal As
 
 **Goal**: Equip the AI assistant with essential tools for maximum utility
 
-### 5A. Web Search Tool (COMPLETE)
+### 5A. Web Search Tool (COMPLETE - Using Claude)
 
-- [x] Integrate web search API (Exa)
+- [x] Integrate Claude's built-in web search
 - [x] Implement search query optimization (Basic stripping)
 - [x] Build result parsing and summarization (In Tool)
 - [x] Create search result caching to reduce API calls
@@ -299,11 +298,11 @@ This project is **NOT a chatbot wrapper**. It is a **Self-Sufficient Personal As
 - [x] **TEST**: Resource limits prevent runaway processes (Verified timeout)
 - [ ] **TEST**: Dangerous operations require approval
 
-### 5D. Vision Capabilities (COMPLETE)
+### 5D. Vision Capabilities (COMPLETE - Using Claude)
 
 - [x] Implement screen capture in Desktop Agent (Electron `desktopCapturer`)
 - [x] Build backend `VisionTool` to request and process screenshots
-- [x] Integrate OpenAI Vision API (GPT-4o)
+- [x] Integrate Claude's Vision capabilities
 - [x] **INTEGRATION**: Connect to NLU (vision intents → vision tool)
 - [x] **TEST**: End-to-end flow from command to description (Verified with mock)
 - [x] Build OCR capability for text extraction
@@ -560,7 +559,7 @@ This project is **NOT a chatbot wrapper**. It is a **Self-Sufficient Personal As
 **Goal**: Transform into a proactive agent that adapts to the user's schedule and actively engages via voice.
 
 ### 9A. Infrastructure & Settings
-- [~] Update `user_api_keys` constraints for new providers (Twilio, ElevenLabs, Exa)
+- [~] Update `user_api_keys` constraints for new providers (Twilio, ElevenLabs)
 - [~] Update `SettingsService` & API to handle new keys and adaptive preferences
 - [ ] Update Frontend `Settings.tsx` with new key inputs
 
