@@ -49,13 +49,14 @@ export function createInsightsRouter(
 
     /**
      * POST /api/insights/:userId/dismiss/:insightId
-     * Dismiss an insight
+     * Dismiss an insight with optional feedback reason
      */
     router.post("/:userId/dismiss/:insightId", async (req: Request, res: Response) => {
         try {
             const { userId, insightId } = req.params;
+            const { reason } = req.body || {};
 
-            await autonomousAgent.dismissInsight(userId, insightId);
+            await autonomousAgent.dismissInsight(userId, insightId, reason);
 
             return res.json({ success: true });
         } catch (error) {

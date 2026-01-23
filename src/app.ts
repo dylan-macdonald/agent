@@ -236,7 +236,8 @@ export class App {
       this.settingsService,
       this.billingService,
       this.smsService,
-      this.socketService
+      this.socketService,
+      this.llmService
     );
   }
 

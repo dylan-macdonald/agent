@@ -10,7 +10,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { Pool } from 'pg';
 import { logger } from '../utils/logger.js';
 import { CalendarService } from './calendar.js';
-import { GoalService, Goal } from './goal.js';
+import { GoalService } from './goal.js';
 import { ReminderService } from './reminder.js';
 import { SleepService, WorkoutService } from './health/service.js';
 import { MemoryService } from './memory.js';
@@ -19,6 +19,7 @@ import { SettingsService } from './settings.js';
 import { BillingService } from './billing.js';
 import { SmsService } from './sms.js';
 import { SocketService } from './socket.js';
+import { LlmService } from './llm.js';
 import { MessagePriority } from '../types/sms.js';
 
 interface AgentInsight {
@@ -75,7 +76,8 @@ export class AutonomousAgentService {
         private settingsService: SettingsService,
         private billingService: BillingService,
         private smsService: SmsService,
-        private socketService: SocketService
+        private socketService: SocketService,
+        private llmService: LlmService
     ) {}
 
     /**
@@ -138,6 +140,9 @@ export class AutonomousAgentService {
             return;
         }
 
+        // Auto-plan any goals without milestones
+        await this.autoPlanGoals(userId, apiKey);
+
         // Gather comprehensive context
         const context = await this.gatherThinkingContext(userId);
 
@@ -146,6 +151,59 @@ export class AutonomousAgentService {
 
         // Act on insights
         await this.actOnInsights(userId, insights, context);
+    }
+
+    /**
+     * Automatically break down goals into milestones
+     */
+    private async autoPlanGoals(userId: string, apiKey: string): Promise<void> {
+        try {
+            const goalsWithoutMilestones = await this.goalService.getGoalsWithoutMilestones(userId);
+
+            if (goalsWithoutMilestones.length === 0) {
+                logger.debug(`No goals without milestones for user ${userId}`);
+                return;
+            }
+
+            logger.info(`Auto-planning ${goalsWithoutMilestones.length} goals for user ${userId}`);
+
+            for (const goal of goalsWithoutMilestones) {
+                try {
+                    // Use LLM to break down the goal
+                    const milestones = await this.llmService.breakdownGoal(
+                        {
+                            title: goal.title,
+                            description: goal.description,
+                            targetDate: goal.targetDate
+                        },
+                        apiKey
+                    );
+
+                    // Store milestones in goal metrics
+                    const updatedMetrics = {
+                        ...(goal.metrics || {}),
+                        milestones,
+                        autoPlannedAt: new Date().toISOString()
+                    };
+
+                    await this.goalService.updateMetrics(goal.id, updatedMetrics);
+
+                    logger.info(`Auto-planned goal "${goal.title}" with ${milestones.length} milestones`);
+
+                    // Notify user via WebSocket
+                    this.socketService.notifySystemEvent(userId, 'goal_planned', {
+                        goalId: goal.id,
+                        goalTitle: goal.title,
+                        milestoneCount: milestones.length
+                    });
+
+                } catch (error) {
+                    logger.error(`Failed to auto-plan goal "${goal.title}"`, { error });
+                }
+            }
+        } catch (error) {
+            logger.error('Failed to auto-plan goals', { error });
+        }
     }
 
     /**
@@ -258,7 +316,24 @@ export class AutonomousAgentService {
         try {
             const anthropic = new Anthropic({ apiKey });
 
-            const systemPrompt = `You are an autonomous AI agent that thinks deeply about your user's life.
+            // Get feedback patterns to avoid making the same mistakes
+            const feedback = await this.getFeedbackPatterns(context.userId);
+
+            let feedbackContext = '';
+            if (feedback.totalDismissals > 0) {
+                feedbackContext = `\n\nIMPORTANT FEEDBACK FROM USER:
+The user has dismissed ${feedback.totalDismissals} insights before. Learn from this!
+`;
+                if (feedback.dismissedTypes.length > 0) {
+                    feedbackContext += `- They often dismiss "${feedback.dismissedTypes.join('", "')}" type insights - use these sparingly\n`;
+                }
+                if (feedback.dismissedTopics.length > 0) {
+                    feedbackContext += `- Recently dismissed topics: "${feedback.dismissedTopics.slice(0, 5).join('", "')}"\n`;
+                }
+                feedbackContext += `Avoid similar suggestions. Adapt to what the user actually finds helpful.\n`;
+            }
+
+            const systemPrompt = `You are an autonomous AI agent that thinks deeply about your user's life.${feedbackContext}
 You have access to their full context: calendar, goals, health patterns, memories, desires, and interests.
 
 Your job is to:
@@ -587,12 +662,106 @@ Return JSON array of insights.`;
     }
 
     /**
-     * Dismiss an insight
+     * Dismiss an insight and learn from it
      */
-    public async dismissInsight(userId: string, insightId: string): Promise<void> {
+    public async dismissInsight(userId: string, insightId: string, reason?: string): Promise<void> {
+        // Mark insight as dismissed
         await this.db.query(`
             UPDATE agent_insights SET dismissed = TRUE WHERE id = $1 AND user_id = $2
         `, [insightId, userId]);
+
+        // Store dismissal feedback for learning
+        await this.storeDismissalFeedback(userId, insightId, reason);
+    }
+
+    /**
+     * Store feedback when an insight is dismissed
+     * This helps the agent learn what the user doesn't find helpful
+     */
+    private async storeDismissalFeedback(userId: string, insightId: string, reason?: string): Promise<void> {
+        try {
+            // Get the insight details
+            const result = await this.db.query(`
+                SELECT type, title, description FROM agent_insights WHERE id = $1
+            `, [insightId]);
+
+            if (result.rows.length === 0) return;
+
+            const insight = result.rows[0];
+
+            // Create feedback table if not exists
+            await this.db.query(`
+                CREATE TABLE IF NOT EXISTS agent_feedback (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    user_id UUID NOT NULL REFERENCES users(id),
+                    insight_type VARCHAR(50) NOT NULL,
+                    insight_title VARCHAR(200) NOT NULL,
+                    insight_description TEXT,
+                    feedback_type VARCHAR(50) DEFAULT 'dismissed',
+                    reason TEXT,
+                    created_at TIMESTAMP DEFAULT NOW()
+                )
+            `);
+
+            // Store the dismissal feedback
+            await this.db.query(`
+                INSERT INTO agent_feedback (user_id, insight_type, insight_title, insight_description, feedback_type, reason)
+                VALUES ($1, $2, $3, $4, 'dismissed', $5)
+            `, [userId, insight.type, insight.title, insight.description, reason || null]);
+
+            logger.info(`Stored dismissal feedback for insight: ${insight.title}`);
+        } catch (error) {
+            logger.error('Failed to store dismissal feedback', { error });
+        }
+    }
+
+    /**
+     * Get feedback patterns for a user (used to improve future insights)
+     */
+    private async getFeedbackPatterns(userId: string): Promise<{
+        dismissedTypes: string[];
+        dismissedTopics: string[];
+        totalDismissals: number;
+    }> {
+        try {
+            // Get types that are frequently dismissed
+            const typeResult = await this.db.query(`
+                SELECT insight_type, COUNT(*) as count
+                FROM agent_feedback
+                WHERE user_id = $1 AND feedback_type = 'dismissed'
+                GROUP BY insight_type
+                HAVING COUNT(*) >= 2
+                ORDER BY count DESC
+            `, [userId]);
+
+            const dismissedTypes = typeResult.rows.map(r => r.insight_type);
+
+            // Get recent dismissed titles to avoid similar suggestions
+            const topicResult = await this.db.query(`
+                SELECT insight_title
+                FROM agent_feedback
+                WHERE user_id = $1 AND feedback_type = 'dismissed'
+                ORDER BY created_at DESC
+                LIMIT 20
+            `, [userId]);
+
+            const dismissedTopics = topicResult.rows.map(r => r.insight_title);
+
+            // Get total dismissals
+            const countResult = await this.db.query(`
+                SELECT COUNT(*) as total
+                FROM agent_feedback
+                WHERE user_id = $1 AND feedback_type = 'dismissed'
+            `, [userId]);
+
+            return {
+                dismissedTypes,
+                dismissedTopics,
+                totalDismissals: parseInt(countResult.rows[0]?.total || '0')
+            };
+        } catch {
+            return { dismissedTypes: [], dismissedTopics: [], totalDismissals: 0 };
+        }
     }
 
     /**
