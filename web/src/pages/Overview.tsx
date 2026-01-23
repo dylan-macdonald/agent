@@ -22,6 +22,7 @@ import { useNavigate } from 'react-router-dom';
 import { AnimatedPage, FadeIn, AnimatedList, AnimatedItem } from '../components/AnimatedPage';
 import { DashboardSkeleton } from '../components/Skeleton';
 import { useRealtimeRefresh, useCheckInNotifications } from '../hooks/useRealtime';
+import { InsightsPanel } from '../components/InsightsPanel';
 
 interface SystemStatus {
     api: 'online' | 'offline' | 'checking';
@@ -270,6 +271,9 @@ export function Overview() {
 
                     {/* Right Column - Quick Info */}
                     <FadeIn delay={0.2} className="space-y-4">
+                        {/* Agent Insights */}
+                        <InsightsPanel userId={userId} />
+
                         {/* Reminders */}
                         <div className="rounded-xl bg-zinc-900/50 border border-zinc-800/50 p-5">
                             <div className="flex items-center justify-between mb-4">
