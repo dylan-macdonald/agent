@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { useEffect, useState, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
     Calendar,
     Target,
@@ -13,12 +13,15 @@ import {
     Sun,
     Zap,
     TrendingUp,
-    Bell
+    Bell,
+    Wifi,
+    WifiOff
 } from 'lucide-react';
 import { api, type OverviewData, type CalendarEvent, type Goal, type Reminder } from '../lib/api';
 import { useNavigate } from 'react-router-dom';
 import { AnimatedPage, FadeIn, AnimatedList, AnimatedItem } from '../components/AnimatedPage';
 import { DashboardSkeleton } from '../components/Skeleton';
+import { useRealtimeRefresh, useCheckInNotifications } from '../hooks/useRealtime';
 
 interface SystemStatus {
     api: 'online' | 'offline' | 'checking';
@@ -35,6 +38,14 @@ export function Overview() {
     const [loading, setLoading] = useState(true);
     const [username, setUsername] = useState<string | null>(null);
     const userId = localStorage.getItem('agent_user_id') || '';
+
+    // Real-time updates
+    const refreshData = useCallback(() => {
+        fetchOverview();
+    }, []);
+
+    const { connected } = useRealtimeRefresh(userId || null, refreshData);
+    const { notification: checkInNotification, dismiss: dismissCheckIn } = useCheckInNotifications(userId || null);
 
     useEffect(() => {
         checkHealth();
@@ -87,6 +98,42 @@ export function Overview() {
 
     return (
         <AnimatedPage className="max-w-6xl mx-auto space-y-6">
+            {/* Check-in Notification Banner */}
+            <AnimatePresence>
+                {checkInNotification && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        className="rounded-xl bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-500/30 p-4"
+                    >
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 rounded-lg bg-cyan-500/20">
+                                    {checkInNotification.type === 'morning' ? (
+                                        <Sun size={18} className="text-amber-400" />
+                                    ) : (
+                                        <Moon size={18} className="text-indigo-400" />
+                                    )}
+                                </div>
+                                <div>
+                                    <div className="font-medium text-sm">
+                                        {checkInNotification.type === 'morning' ? 'Morning Check-in' : 'Evening Reflection'}
+                                    </div>
+                                    <div className="text-xs text-zinc-400">{checkInNotification.message}</div>
+                                </div>
+                            </div>
+                            <button
+                                onClick={dismissCheckIn}
+                                className="text-xs text-zinc-400 hover:text-white transition-colors"
+                            >
+                                Dismiss
+                            </button>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
             {/* Hero Section */}
             <FadeIn>
                 <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-zinc-900 via-zinc-900 to-zinc-950 border border-zinc-800/50 p-8">
@@ -293,6 +340,11 @@ export function Overview() {
                                 <StatusRow
                                     label="Database"
                                     status={status.database === 'connected' ? 'online' : 'offline'}
+                                />
+                                <StatusRow
+                                    label="Real-time"
+                                    status={connected ? 'online' : 'offline'}
+                                    icon={connected ? <Wifi size={12} /> : <WifiOff size={12} />}
                                 />
                             </div>
                         </div>
@@ -506,14 +558,20 @@ function HealthMetric({ icon, label, value }: {
     );
 }
 
-function StatusRow({ label, status }: { label: string; status: 'online' | 'offline' }) {
+function StatusRow({ label, status, icon }: { label: string; status: 'online' | 'offline'; icon?: React.ReactNode }) {
     return (
         <div className="flex items-center justify-between text-sm">
             <span className="text-zinc-500">{label}</span>
             <div className="flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full ${
-                    status === 'online' ? 'bg-emerald-400' : 'bg-rose-400'
-                }`} />
+                {icon ? (
+                    <span className={status === 'online' ? 'text-emerald-400' : 'text-rose-400'}>
+                        {icon}
+                    </span>
+                ) : (
+                    <div className={`w-2 h-2 rounded-full ${
+                        status === 'online' ? 'bg-emerald-400' : 'bg-rose-400'
+                    }`} />
+                )}
                 <span className={status === 'online' ? 'text-emerald-400' : 'text-rose-400'}>
                     {status === 'online' ? 'Online' : 'Offline'}
                 </span>

@@ -222,6 +222,18 @@ export function Settings() {
                                 />
                             </div>
                         </div>
+
+                        <div className="border-t border-zinc-800/50 pt-5">
+                            <h4 className="text-sm font-medium text-zinc-300 mb-4">Tools & Integrations</h4>
+                            <div className="space-y-5">
+                                <ApiKeyInput
+                                    userId={userId}
+                                    provider="exa"
+                                    label="Exa API Key"
+                                    description="Required for AI web search"
+                                />
+                            </div>
+                        </div>
                     </div>
                 </div>
             </Section>

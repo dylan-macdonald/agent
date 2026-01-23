@@ -11,7 +11,9 @@ import {
     CreditCard,
     Plus,
     Bot,
-    ChevronRight
+    ChevronRight,
+    Menu,
+    X
 } from 'lucide-react';
 import { api } from '../lib/api';
 
@@ -30,6 +32,12 @@ export function DashboardLayout() {
     const userId = localStorage.getItem('agent_user_id');
     const [userInfo, setUserInfo] = useState<UserInfo>({ username: null, initials: 'U' });
     const [systemStatus, setSystemStatus] = useState<'online' | 'offline' | 'checking'>('checking');
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+    // Close mobile menu on navigation
+    useEffect(() => {
+        setMobileMenuOpen(false);
+    }, [location.pathname]);
 
     useEffect(() => {
         loadUserInfo();
@@ -87,8 +95,20 @@ export function DashboardLayout() {
 
     return (
         <div className="flex h-screen bg-[var(--color-bg-primary)] text-white overflow-hidden">
-            {/* Sidebar */}
-            <aside className="w-64 border-r border-zinc-800/50 flex flex-col bg-[var(--color-bg-secondary)]">
+            {/* Mobile Menu Overlay */}
+            {mobileMenuOpen && (
+                <div
+                    className="fixed inset-0 bg-black/60 z-40 lg:hidden"
+                    onClick={() => setMobileMenuOpen(false)}
+                />
+            )}
+
+            {/* Sidebar - hidden on mobile unless menu open */}
+            <aside className={cn(
+                "w-64 border-r border-zinc-800/50 flex flex-col bg-[var(--color-bg-secondary)]",
+                "fixed lg:relative inset-y-0 left-0 z-50 transform transition-transform duration-200 ease-in-out",
+                mobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+            )}>
                 {/* Logo */}
                 <div className="p-5 border-b border-zinc-800/50">
                     <div
@@ -199,11 +219,21 @@ export function DashboardLayout() {
             {/* Main Content */}
             <main className="flex-1 flex flex-col overflow-hidden">
                 {/* Header */}
-                <header className="h-14 border-b border-zinc-800/50 flex items-center justify-between px-6 bg-[var(--color-bg-secondary)]/50 backdrop-blur-sm shrink-0">
-                    <div className="flex items-center gap-2 text-sm">
-                        <span className="text-zinc-500">Dashboard</span>
-                        <ChevronRight size={14} className="text-zinc-600" />
-                        <span className="text-white font-medium">{getPageTitle()}</span>
+                <header className="h-14 border-b border-zinc-800/50 flex items-center justify-between px-4 lg:px-6 bg-[var(--color-bg-secondary)]/50 backdrop-blur-sm shrink-0">
+                    <div className="flex items-center gap-3">
+                        {/* Mobile menu button */}
+                        <button
+                            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                            className="lg:hidden p-2 -ml-2 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+                        >
+                            {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+                        </button>
+
+                        <div className="flex items-center gap-2 text-sm">
+                            <span className="text-zinc-500 hidden sm:inline">Dashboard</span>
+                            <ChevronRight size={14} className="text-zinc-600 hidden sm:inline" />
+                            <span className="text-white font-medium">{getPageTitle()}</span>
+                        </div>
                     </div>
 
                     <div className="flex items-center gap-3">
@@ -219,15 +249,53 @@ export function DashboardLayout() {
                                 systemStatus === 'offline' && "bg-red-400",
                                 systemStatus === 'checking' && "bg-amber-400 animate-pulse"
                             )} />
-                            {systemStatus === 'online' ? 'Connected' : systemStatus === 'offline' ? 'Offline' : 'Connecting...'}
+                            <span className="hidden sm:inline">
+                                {systemStatus === 'online' ? 'Connected' : systemStatus === 'offline' ? 'Offline' : 'Connecting...'}
+                            </span>
                         </div>
                     </div>
                 </header>
 
                 {/* Page Content */}
-                <div className="flex-1 overflow-auto p-6 bg-gradient-to-b from-[var(--color-bg-primary)] to-[var(--color-bg-secondary)]">
+                <div className="flex-1 overflow-auto p-4 lg:p-6 pb-20 lg:pb-6 bg-gradient-to-b from-[var(--color-bg-primary)] to-[var(--color-bg-secondary)] scroll-touch">
                     <Outlet />
                 </div>
+
+                {/* Mobile Bottom Navigation */}
+                <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-[var(--color-bg-secondary)]/95 backdrop-blur-lg border-t border-zinc-800/50 safe-bottom z-30">
+                    <div className="flex items-center justify-around px-2 py-2">
+                        <MobileNavItem
+                            icon={<Home size={20} />}
+                            label="Home"
+                            active={isActive('/')}
+                            onClick={() => navigate('/')}
+                        />
+                        <MobileNavItem
+                            icon={<MessageSquare size={20} />}
+                            label="Chat"
+                            active={isActive('/chat')}
+                            onClick={() => navigate('/chat')}
+                        />
+                        <MobileNavItem
+                            icon={<Target size={20} />}
+                            label="Goals"
+                            active={isActive('/goals')}
+                            onClick={() => navigate('/goals')}
+                        />
+                        <MobileNavItem
+                            icon={<Activity size={20} />}
+                            label="Health"
+                            active={isActive('/health')}
+                            onClick={() => navigate('/health')}
+                        />
+                        <MobileNavItem
+                            icon={<Settings size={20} />}
+                            label="Settings"
+                            active={isActive('/settings')}
+                            onClick={() => navigate('/settings')}
+                        />
+                    </div>
+                </nav>
             </main>
         </div>
     );
@@ -266,6 +334,38 @@ function NavItem({
             {active && (
                 <div className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
             )}
+        </button>
+    );
+}
+
+function MobileNavItem({
+    icon,
+    label,
+    active = false,
+    onClick
+}: {
+    icon: React.ReactNode;
+    label: string;
+    active?: boolean;
+    onClick: () => void;
+}) {
+    return (
+        <button
+            onClick={onClick}
+            className={cn(
+                "flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-xl transition-all min-w-[60px]",
+                active
+                    ? "text-cyan-400"
+                    : "text-zinc-500 active:text-zinc-300"
+            )}
+        >
+            <div className={cn(
+                "p-1.5 rounded-lg transition-colors",
+                active && "bg-cyan-500/10"
+            )}>
+                {icon}
+            </div>
+            <span className="text-[10px] font-medium">{label}</span>
         </button>
     );
 }

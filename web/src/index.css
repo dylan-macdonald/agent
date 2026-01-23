@@ -126,3 +126,106 @@ body {
 .terminal-glow {
   text-shadow: 0 0 20px var(--color-accent-glow);
 }
+
+/* ============ Mobile Optimizations ============ */
+
+/* Safe area for notched devices (iPhone X+) */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .mobile-nav {
+    padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+  }
+}
+
+/* Touch optimizations */
+@media (pointer: coarse) {
+  /* Larger tap targets on touch devices */
+  button, a, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Better touch scrolling */
+  .scroll-touch {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
+
+  /* Disable text selection on interactive elements */
+  button, [role="button"] {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* Hide scrollbar on mobile but keep functionality */
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+}
+
+/* Mobile-specific responsive utilities */
+@media (max-width: 640px) {
+  /* Adjust font sizes for mobile */
+  html {
+    font-size: 15px;
+  }
+
+  /* Full-width buttons on mobile */
+  .mobile-full {
+    width: 100%;
+  }
+
+  /* Stack horizontal layouts on mobile */
+  .mobile-stack {
+    flex-direction: column;
+  }
+
+  /* Reduce padding on mobile */
+  .mobile-compact {
+    padding: 0.75rem;
+  }
+
+  /* Bottom sheet style modals */
+  .mobile-sheet {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    border-radius: 1rem 1rem 0 0;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+}
+
+/* Prevent pull-to-refresh on body but allow in scrollable areas */
+body {
+  overscroll-behavior-y: contain;
+}
+
+/* Active state for touch feedback */
+@media (hover: none) {
+  button:active, a:active, [role="button"]:active {
+    opacity: 0.8;
+    transform: scale(0.98);
+  }
+}
+
+/* Smooth animations that respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Dark mode status bar color (handled in meta tag but CSS fallback) */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+  }
+}

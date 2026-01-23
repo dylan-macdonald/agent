@@ -12,6 +12,7 @@ import { createCostRouter } from "./api/routes/cost.js";
 import { createDashboardRouter } from "./api/routes/dashboard.js";
 import { createLlmRoutes } from "./api/routes/llm.js";
 import { createSmsRouter } from "./api/routes/sms.js";
+import { createVoiceRouter } from "./api/routes/voice.js";
 import { TwilioSmsProvider } from "./integrations/twilio.js";
 import { ElevenLabsVoiceProvider } from "./integrations/voice/elevenlabs-provider.js";
 import { OpenAiVoiceProvider } from "./integrations/voice/openai-provider.js";
@@ -247,6 +248,12 @@ export class App {
         this.workoutService,
         this.settingsService
       )
+    );
+
+    // Voice alarm TwiML routes
+    this.express.use(
+      "/api/voice",
+      createVoiceRouter(this.voiceAlarmService)
     );
   }
 

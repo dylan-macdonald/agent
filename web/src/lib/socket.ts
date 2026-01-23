@@ -14,10 +14,36 @@ export interface ChatMessage {
     timestamp: string;
 }
 
+// Dashboard update types
+export interface DashboardUpdate<T = any> {
+    action: 'created' | 'updated' | 'deleted' | 'triggered';
+    timestamp: string;
+    data?: T;
+    goal?: T;
+    event?: T;
+    reminder?: T;
+    type?: 'sleep' | 'workout';
+}
+
+export interface CheckInEvent {
+    type: 'morning' | 'evening';
+    message: string;
+    timestamp: string;
+}
+
+export interface SystemEvent {
+    event: string;
+    data: any;
+    timestamp: string;
+}
+
 type MessageHandler = (message: ChatMessage) => void;
 type TypingHandler = (typing: boolean) => void;
 type ConnectionHandler = (connected: boolean) => void;
 type ErrorHandler = (error: string) => void;
+type DashboardUpdateHandler<T = any> = (update: DashboardUpdate<T>) => void;
+type CheckInHandler = (event: CheckInEvent) => void;
+type SystemEventHandler = (event: SystemEvent) => void;
 
 class SocketClient {
     private socket: Socket | null = null;
@@ -26,6 +52,13 @@ class SocketClient {
     private typingHandlers: Set<TypingHandler> = new Set();
     private connectionHandlers: Set<ConnectionHandler> = new Set();
     private errorHandlers: Set<ErrorHandler> = new Set();
+    // Dashboard event handlers
+    private goalUpdateHandlers: Set<DashboardUpdateHandler> = new Set();
+    private calendarUpdateHandlers: Set<DashboardUpdateHandler> = new Set();
+    private reminderUpdateHandlers: Set<DashboardUpdateHandler> = new Set();
+    private healthUpdateHandlers: Set<DashboardUpdateHandler> = new Set();
+    private checkInHandlers: Set<CheckInHandler> = new Set();
+    private systemEventHandlers: Set<SystemEventHandler> = new Set();
 
     connect(userId: string): void {
         if (this.socket?.connected && this.userId === userId) {
@@ -100,6 +133,31 @@ class SocketClient {
                 timestamp: new Date().toISOString()
             });
         });
+
+        // Dashboard real-time events
+        this.socket.on('goal-update', (update: DashboardUpdate) => {
+            this.goalUpdateHandlers.forEach(handler => handler(update));
+        });
+
+        this.socket.on('calendar-update', (update: DashboardUpdate) => {
+            this.calendarUpdateHandlers.forEach(handler => handler(update));
+        });
+
+        this.socket.on('reminder-update', (update: DashboardUpdate) => {
+            this.reminderUpdateHandlers.forEach(handler => handler(update));
+        });
+
+        this.socket.on('health-update', (update: DashboardUpdate) => {
+            this.healthUpdateHandlers.forEach(handler => handler(update));
+        });
+
+        this.socket.on('check-in', (event: CheckInEvent) => {
+            this.checkInHandlers.forEach(handler => handler(event));
+        });
+
+        this.socket.on('system-event', (event: SystemEvent) => {
+            this.systemEventHandlers.forEach(handler => handler(event));
+        });
     }
 
     disconnect(): void {
@@ -146,6 +204,37 @@ class SocketClient {
     onError(handler: ErrorHandler): () => void {
         this.errorHandlers.add(handler);
         return () => this.errorHandlers.delete(handler);
+    }
+
+    // Dashboard event handlers
+    onGoalUpdate(handler: DashboardUpdateHandler): () => void {
+        this.goalUpdateHandlers.add(handler);
+        return () => this.goalUpdateHandlers.delete(handler);
+    }
+
+    onCalendarUpdate(handler: DashboardUpdateHandler): () => void {
+        this.calendarUpdateHandlers.add(handler);
+        return () => this.calendarUpdateHandlers.delete(handler);
+    }
+
+    onReminderUpdate(handler: DashboardUpdateHandler): () => void {
+        this.reminderUpdateHandlers.add(handler);
+        return () => this.reminderUpdateHandlers.delete(handler);
+    }
+
+    onHealthUpdate(handler: DashboardUpdateHandler): () => void {
+        this.healthUpdateHandlers.add(handler);
+        return () => this.healthUpdateHandlers.delete(handler);
+    }
+
+    onCheckIn(handler: CheckInHandler): () => void {
+        this.checkInHandlers.add(handler);
+        return () => this.checkInHandlers.delete(handler);
+    }
+
+    onSystemEvent(handler: SystemEventHandler): () => void {
+        this.systemEventHandlers.add(handler);
+        return () => this.systemEventHandlers.delete(handler);
     }
 
     private notifyMessageHandlers(message: ChatMessage): void {

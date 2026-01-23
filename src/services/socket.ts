@@ -335,4 +335,48 @@ export class SocketService {
     }
     return clients;
   }
+
+  // ========== Dashboard Real-time Updates ==========
+
+  /**
+   * Notify user of goal updates
+   */
+  public notifyGoalUpdate(userId: string, action: 'created' | 'updated' | 'deleted', goal: any): void {
+    this.io.to(`user:${userId}`).emit('goal-update', { action, goal, timestamp: new Date().toISOString() });
+  }
+
+  /**
+   * Notify user of calendar event updates
+   */
+  public notifyCalendarUpdate(userId: string, action: 'created' | 'updated' | 'deleted', event: any): void {
+    this.io.to(`user:${userId}`).emit('calendar-update', { action, event, timestamp: new Date().toISOString() });
+  }
+
+  /**
+   * Notify user of reminder updates
+   */
+  public notifyReminderUpdate(userId: string, action: 'created' | 'updated' | 'deleted' | 'triggered', reminder: any): void {
+    this.io.to(`user:${userId}`).emit('reminder-update', { action, reminder, timestamp: new Date().toISOString() });
+  }
+
+  /**
+   * Notify user of health log updates
+   */
+  public notifyHealthUpdate(userId: string, type: 'sleep' | 'workout', action: 'created' | 'updated' | 'deleted', data: any): void {
+    this.io.to(`user:${userId}`).emit('health-update', { type, action, data, timestamp: new Date().toISOString() });
+  }
+
+  /**
+   * Notify user of check-in events
+   */
+  public notifyCheckIn(userId: string, type: 'morning' | 'evening', message: string): void {
+    this.io.to(`user:${userId}`).emit('check-in', { type, message, timestamp: new Date().toISOString() });
+  }
+
+  /**
+   * Notify user of system events (alarms, notifications)
+   */
+  public notifySystemEvent(userId: string, event: string, data: any): void {
+    this.io.to(`user:${userId}`).emit('system-event', { event, data, timestamp: new Date().toISOString() });
+  }
 }
