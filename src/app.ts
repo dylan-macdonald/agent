@@ -146,7 +146,26 @@ export class App {
     this.reminderService = new ReminderService(this.db);
     this.reminderScheduler = new ReminderScheduler(this.reminderService, this.smsService);
 
-    this.checkInService = new CheckInService(this.calendarService, this.reminderService, this.smsService);
+    this.goalService = new GoalService(this.db);
+
+    // Initialize Health services (needed by CheckInService)
+    this.sleepService = new SleepService(this.db);
+    this.workoutService = new WorkoutService(this.db);
+    this.mindfulnessService = new MindfulnessService();
+
+    // CheckInService now uses LLM for personalized briefings
+    this.checkInService = new CheckInService(
+      this.calendarService,
+      this.reminderService,
+      this.goalService,
+      this.sleepService,
+      this.workoutService,
+      memoryService,
+      this.smsService,
+      this.llmService,
+      this.billingService,
+      this.settingsService
+    );
 
     // Voice Alarm Service (requires billing for keys + public url for callbacks)
     const publicUrl = process.env.PUBLIC_URL || "http://localhost:3000";
@@ -159,13 +178,6 @@ export class App {
       this.sleepService,
       this.voiceAlarmService
     );
-
-    this.goalService = new GoalService(this.db);
-
-    // Initialize Health services
-    this.sleepService = new SleepService(this.db);
-    this.workoutService = new WorkoutService(this.db);
-    this.mindfulnessService = new MindfulnessService();
 
     this.assistantService = new AssistantService(
       this.smsService,

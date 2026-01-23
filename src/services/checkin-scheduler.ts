@@ -78,10 +78,12 @@ export class CheckInScheduler {
                 if (currentHour === wakeHour && currentMinute === wakeMinute) {
                     if (!this.hasRun(userId, CheckInType.MORNING, today)) {
                         if (settings.useVoiceAlarm && user.phone_number) {
+                            // Generate personalized wake-up message using LLM
+                            const wakeUpMessage = await this.checkInService.generateWakeUpMessage(userId);
                             await this.voiceAlarmService.triggerAlarm(
                                 userId,
                                 user.phone_number,
-                                "Good morning. It is time to wake up. Please say I am up to dismiss."
+                                wakeUpMessage
                             );
                         } else {
                             await this.checkInService.performMorningCheckIn(userId);

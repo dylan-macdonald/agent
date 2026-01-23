@@ -170,4 +170,143 @@ export class LlmService {
             throw error;
         }
     }
+
+    /**
+     * Generate a proactive briefing/message (for check-ins, alarms, etc.)
+     * Uses Haiku for speed since these are frequent and should be snappy
+     */
+    public async generateBriefing(
+        context: BriefingContext,
+        apiKey: string
+    ): Promise<string> {
+        try {
+            const anthropic = new Anthropic({ apiKey });
+
+            const systemPrompt = `You are a personal AI assistant named Agent. You're proactively reaching out to your user.
+
+Your personality:
+- Warm but not overly effusive
+- Concise and action-oriented
+- Knows the user personally (use their name if provided)
+- Speaks naturally, like a helpful friend/manager
+- For SMS: Keep under 160 chars if possible, max 300
+- For Voice: Speak naturally, can be slightly longer
+
+IMPORTANT: This is a PROACTIVE message - you're initiating contact, not responding to the user.`;
+
+            const userPrompt = this.buildBriefingPrompt(context);
+
+            const response = await anthropic.messages.create({
+                model: 'claude-haiku-4-5-20251001', // Fast for proactive messages
+                max_tokens: 500,
+                system: systemPrompt,
+                messages: [{ role: 'user', content: userPrompt }]
+            });
+
+            if (response.content?.[0]?.type === 'text') {
+                return response.content[0].text.trim();
+            }
+
+            return this.getFallbackMessage(context.type);
+        } catch (error) {
+            logger.error("Failed to generate briefing", { error });
+            return this.getFallbackMessage(context.type);
+        }
+    }
+
+    private buildBriefingPrompt(ctx: BriefingContext): string {
+        let prompt = `Generate a ${ctx.type} message for ${ctx.userName || 'the user'}.\n\n`;
+        prompt += `Current time: ${new Date().toLocaleString()}\n`;
+        prompt += `Delivery method: ${ctx.deliveryMethod}\n\n`;
+
+        if (ctx.events && ctx.events.length > 0) {
+            prompt += `TODAY'S SCHEDULE:\n`;
+            ctx.events.forEach(e => {
+                prompt += `- ${e.title} at ${e.time}${e.location ? ` (${e.location})` : ''}\n`;
+            });
+            prompt += '\n';
+        } else {
+            prompt += `TODAY'S SCHEDULE: Clear - no events\n\n`;
+        }
+
+        if (ctx.reminders && ctx.reminders.length > 0) {
+            prompt += `PENDING REMINDERS:\n`;
+            ctx.reminders.forEach(r => {
+                prompt += `- ${r.title}${r.isOverdue ? ' (OVERDUE)' : ''}\n`;
+            });
+            prompt += '\n';
+        }
+
+        if (ctx.goals && ctx.goals.length > 0) {
+            prompt += `ACTIVE GOALS:\n`;
+            ctx.goals.forEach(g => {
+                prompt += `- ${g.title}: ${g.progress}% complete\n`;
+            });
+            prompt += '\n';
+        }
+
+        if (ctx.healthInsights) {
+            prompt += `HEALTH INSIGHTS:\n`;
+            if (ctx.healthInsights.avgSleep) {
+                prompt += `- Average sleep this week: ${ctx.healthInsights.avgSleep} hours\n`;
+            }
+            if (ctx.healthInsights.workoutsThisWeek !== undefined) {
+                prompt += `- Workouts this week: ${ctx.healthInsights.workoutsThisWeek}\n`;
+            }
+            if (ctx.healthInsights.lastWorkout) {
+                prompt += `- Last workout: ${ctx.healthInsights.lastWorkout}\n`;
+            }
+            prompt += '\n';
+        }
+
+        if (ctx.recentMemories && ctx.recentMemories.length > 0) {
+            prompt += `THINGS TO REMEMBER ABOUT USER:\n`;
+            ctx.recentMemories.forEach(m => {
+                prompt += `- ${m}\n`;
+            });
+            prompt += '\n';
+        }
+
+        // Type-specific instructions
+        if (ctx.type === 'morning_wakeup') {
+            prompt += `\nGenerate a wake-up call message. Be energizing but gentle. Mention the most important thing on their schedule if any. Keep it brief for voice delivery.`;
+        } else if (ctx.type === 'morning_briefing') {
+            prompt += `\nGenerate a morning briefing. Summarize their day, highlight priorities, and set a positive tone. End with a question or call to action.`;
+        } else if (ctx.type === 'evening_reflection') {
+            prompt += `\nGenerate an evening reflection prompt. Ask about their day, celebrate wins, and gently prompt them to wind down. Be warm and supportive.`;
+        }
+
+        return prompt;
+    }
+
+    private getFallbackMessage(type: BriefingType): string {
+        switch (type) {
+            case 'morning_wakeup':
+                return "Good morning! Time to start your day.";
+            case 'morning_briefing':
+                return "Good morning! Ready to tackle the day?";
+            case 'evening_reflection':
+                return "Good evening! How did your day go?";
+            default:
+                return "Hello! Just checking in.";
+        }
+    }
+}
+
+// Types for briefing generation
+export type BriefingType = 'morning_wakeup' | 'morning_briefing' | 'evening_reflection' | 'reminder' | 'custom';
+
+export interface BriefingContext {
+    type: BriefingType;
+    userName?: string;
+    deliveryMethod: 'sms' | 'voice' | 'push';
+    events?: Array<{ title: string; time: string; location?: string }>;
+    reminders?: Array<{ title: string; isOverdue: boolean }>;
+    goals?: Array<{ title: string; progress: number }>;
+    healthInsights?: {
+        avgSleep?: number;
+        workoutsThisWeek?: number;
+        lastWorkout?: string;
+    };
+    recentMemories?: string[];
 }
