@@ -149,6 +149,19 @@ export interface HealthSummary {
     };
 }
 
+export interface AgentInsight {
+    id?: string;
+    type: 'task_suggestion' | 'reminder_suggestion' | 'pattern_observation' |
+          'goal_nudge' | 'forgotten_desire' | 'health_insight' | 'recommendation';
+    priority: 'low' | 'medium' | 'high';
+    title: string;
+    description: string;
+    actionable?: {
+        type: 'create_task' | 'create_reminder' | 'create_goal' | 'send_message';
+        payload: any;
+    };
+}
+
 // ============ API Functions ============
 
 export const api = {
@@ -262,5 +275,18 @@ export const api = {
 
     async getLlmModels(userId: string, provider: string): Promise<ApiResponse<string[]>> {
         return fetchApi(`/api/llm/${userId}/models/${provider}`);
+    },
+
+    // Insights (Autonomous Agent)
+    async getInsights(userId: string, limit: number = 10): Promise<ApiResponse<{ insights: AgentInsight[] }>> {
+        return fetchApi(`/api/insights/${userId}?limit=${limit}`);
+    },
+
+    async triggerThinking(userId: string): Promise<ApiResponse<{ insights: AgentInsight[]; insightsGenerated: number }>> {
+        return fetchApi(`/api/insights/${userId}/think`, { method: 'POST' });
+    },
+
+    async dismissInsight(userId: string, insightId: string): Promise<ApiResponse<{ success: boolean }>> {
+        return fetchApi(`/api/insights/${userId}/dismiss/${insightId}`, { method: 'POST' });
     },
 };

@@ -10,6 +10,7 @@ import { Pool } from "pg";
 import { createBillingRouter } from "./api/routes/billing.js";
 import { createCostRouter } from "./api/routes/cost.js";
 import { createDashboardRouter } from "./api/routes/dashboard.js";
+import { createInsightsRouter } from "./api/routes/insights.js";
 import { createLlmRoutes } from "./api/routes/llm.js";
 import { createSmsRouter } from "./api/routes/sms.js";
 import { createVoiceRouter } from "./api/routes/voice.js";
@@ -41,6 +42,7 @@ import { ReminderScheduler } from "./services/reminder-scheduler.js";
 import { CheckInScheduler } from "./services/checkin-scheduler.js";
 import { VoiceAlarmService } from "./services/voice-alarm.js";
 import { GoalService } from "./services/goal.js";
+import { AutonomousAgentService } from "./services/autonomous-agent.js";
 import { SettingsService } from "./services/settings.js";
 import { AppConfig } from "./types/index.js";
 import { logger } from "./utils/logger.js";
@@ -73,6 +75,9 @@ export class App {
 
   private billingService!: BillingService;
   private llmService!: LlmService;
+  private autonomousAgent!: AutonomousAgentService;
+  private memoryService!: MemoryService;
+  private patternService!: PatternService;
 
   constructor(private config: AppConfig) {
     this.express = express();
@@ -127,12 +132,12 @@ export class App {
 
     // Initialize Assistant components
     const processor = new MessageProcessor();
-    const memoryService = new MemoryService(this.db, this.redis);
-    const patternService = new PatternService(this.db);
+    this.memoryService = new MemoryService(this.db, this.redis);
+    this.patternService = new PatternService(this.db);
     const contextService = new ContextService(
       this.db,
-      memoryService,
-      patternService
+      this.memoryService,
+      this.patternService
     );
     const conversationService = new ConversationService(this.redis);
 
@@ -160,7 +165,7 @@ export class App {
       this.goalService,
       this.sleepService,
       this.workoutService,
-      memoryService,
+      this.memoryService,
       this.smsService,
       this.llmService,
       this.billingService,
@@ -183,7 +188,7 @@ export class App {
       this.smsService,
       processor,
       contextService,
-      memoryService,
+      this.memoryService,
       conversationService,
       this.toolService,
       this.calendarService,
@@ -191,7 +196,6 @@ export class App {
       this.goalService,
       this.sleepService,
       this.workoutService,
-
       this.mindfulnessService,
       this.llmService,
       this.settingsService,
@@ -218,6 +222,22 @@ export class App {
 
     // Register Vision Tool (requires socket service)
     this.toolService.registerTool(new VisionTool(this.socketService));
+
+    // Initialize Autonomous Agent (the "brain" that thinks independently)
+    this.autonomousAgent = new AutonomousAgentService(
+      this.db,
+      this.calendarService,
+      this.goalService,
+      this.reminderService,
+      this.sleepService,
+      this.workoutService,
+      this.memoryService,
+      this.patternService,
+      this.settingsService,
+      this.billingService,
+      this.smsService,
+      this.socketService
+    );
   }
 
   private setupMiddleware(): void {
@@ -267,6 +287,12 @@ export class App {
       "/api/voice",
       createVoiceRouter(this.voiceAlarmService)
     );
+
+    // Autonomous agent insights routes
+    this.express.use(
+      "/api/insights",
+      createInsightsRouter(this.autonomousAgent)
+    );
   }
 
   private setupErrorHandling(): void {
@@ -290,12 +316,14 @@ export class App {
 
     this.reminderScheduler.start();
     this.checkInScheduler.start();
+    this.autonomousAgent.start(); // Start the autonomous thinking loop
 
     const port = this.config.port;
     this.server.listen(port, () => {
       logger.info(
         `Server running on port ${port} in ${this.config.environment} mode`
       );
+      logger.info('Autonomous Agent brain is now active - thinking every 4 hours');
     });
   }
 
@@ -303,6 +331,7 @@ export class App {
     logger.info("Shutting down app...");
     this.reminderScheduler.stop();
     this.checkInScheduler.stop();
+    this.autonomousAgent.stop();
     await this.smsQueue.shutdown();
     await this.db.end();
     this.redis.disconnect();
