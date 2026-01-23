@@ -324,7 +324,7 @@ export class App {
       logger.info(
         `Server running on port ${port} in ${this.config.environment} mode`
       );
-      logger.info('Autonomous Agent brain is now active - thinking every 4 hours');
+      logger.info('Autonomous Agent brain is now active - self-scheduling thinking cycles');
     });
   }
 

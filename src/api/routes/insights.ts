@@ -8,6 +8,26 @@ export function createInsightsRouter(
     const router = Router();
 
     /**
+     * GET /api/insights/status
+     * Get agent status including next wake time
+     */
+    router.get("/status", async (_req: Request, res: Response) => {
+        try {
+            const nextWakeTime = autonomousAgent.getNextWakeTime();
+            return res.json({
+                status: 'active',
+                nextWakeTime: nextWakeTime?.toISOString() || null,
+                nextWakeIn: nextWakeTime
+                    ? Math.round((nextWakeTime.getTime() - Date.now()) / 1000 / 60) + ' minutes'
+                    : null
+            });
+        } catch (error) {
+            logger.error("Failed to get agent status", { error });
+            return res.status(500).json({ error: "Failed to get agent status" });
+        }
+    });
+
+    /**
      * GET /api/insights/:userId
      * Get pending insights for a user
      */

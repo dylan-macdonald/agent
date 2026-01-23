@@ -278,6 +278,10 @@ export const api = {
     },
 
     // Insights (Autonomous Agent)
+    async getAgentStatus(): Promise<ApiResponse<{ status: string; nextWakeTime: string | null; nextWakeIn: string | null }>> {
+        return fetchApi('/api/insights/status');
+    },
+
     async getInsights(userId: string, limit: number = 10): Promise<ApiResponse<{ insights: AgentInsight[] }>> {
         return fetchApi(`/api/insights/${userId}?limit=${limit}`);
     },

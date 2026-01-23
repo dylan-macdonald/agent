@@ -58,11 +58,15 @@ interface ThinkingContext {
 }
 
 export class AutonomousAgentService {
-    private thinkingInterval: NodeJS.Timeout | null = null;
+    private thinkingTimeout: NodeJS.Timeout | null = null;
     private isRunning = false;
+    private nextWakeTime: Date | null = null;
 
-    // Think every 4 hours by default
-    private thinkingIntervalMs = 4 * 60 * 60 * 1000;
+    // Default sleep duration (used when agent can't determine its own)
+    private defaultSleepHours = 4;
+    // Min/max sleep bounds (in hours)
+    private minSleepHours = 1;
+    private maxSleepHours = 12;
 
     constructor(
         private db: Pool,
@@ -87,23 +91,46 @@ export class AutonomousAgentService {
         if (this.isRunning) return;
         this.isRunning = true;
 
-        logger.info('Starting Autonomous Agent Loop...');
+        logger.info('Starting Autonomous Agent Loop (self-scheduling)...');
 
-        // Run immediately on start, then every interval
+        // Run immediately on start
         void this.runThinkingCycle();
-
-        this.thinkingInterval = setInterval(() => {
-            void this.runThinkingCycle();
-        }, this.thinkingIntervalMs);
     }
 
     public stop(): void {
         this.isRunning = false;
-        if (this.thinkingInterval) {
-            clearInterval(this.thinkingInterval);
-            this.thinkingInterval = null;
+        if (this.thinkingTimeout) {
+            clearTimeout(this.thinkingTimeout);
+            this.thinkingTimeout = null;
         }
+        this.nextWakeTime = null;
         logger.info('Autonomous Agent Loop stopped');
+    }
+
+    /**
+     * Get the next scheduled wake time
+     */
+    public getNextWakeTime(): Date | null {
+        return this.nextWakeTime;
+    }
+
+    /**
+     * Schedule the next thinking cycle
+     */
+    private scheduleNextCycle(sleepHours: number): void {
+        if (!this.isRunning) return;
+
+        // Clamp to valid range
+        const hours = Math.max(this.minSleepHours, Math.min(this.maxSleepHours, Math.round(sleepHours)));
+        const sleepMs = hours * 60 * 60 * 1000;
+
+        this.nextWakeTime = new Date(Date.now() + sleepMs);
+
+        logger.info(`Agent going to sleep for ${hours} hour(s). Next wake: ${this.nextWakeTime.toLocaleString()}`);
+
+        this.thinkingTimeout = setTimeout(() => {
+            void this.runThinkingCycle();
+        }, sleepMs);
     }
 
     /**
@@ -112,32 +139,109 @@ export class AutonomousAgentService {
     private async runThinkingCycle(): Promise<void> {
         logger.info('Running autonomous thinking cycle...');
 
+        let nextSleepHours = this.defaultSleepHours;
+        let contextForSleepDecision: ThinkingContext | null = null;
+        let apiKeyForSleepDecision: string | null = null;
+
         try {
             const result = await this.db.query('SELECT id FROM users');
             const users = result.rows;
 
             for (const user of users) {
                 try {
-                    await this.thinkAboutUser(user.id);
+                    const { context, apiKey } = await this.thinkAboutUser(user.id);
+                    // Use the last user's context for sleep decision (or could aggregate)
+                    if (context && apiKey) {
+                        contextForSleepDecision = context;
+                        apiKeyForSleepDecision = apiKey;
+                    }
                 } catch (error) {
                     logger.error(`Error thinking about user ${user.id}`, { error });
                 }
             }
+
+            // Determine how long to sleep before next thinking cycle
+            if (contextForSleepDecision && apiKeyForSleepDecision) {
+                nextSleepHours = await this.determineSleepDuration(contextForSleepDecision, apiKeyForSleepDecision);
+            }
         } catch (error) {
             logger.error('Error in thinking cycle', { error });
+        }
+
+        // Schedule the next cycle
+        this.scheduleNextCycle(nextSleepHours);
+    }
+
+    /**
+     * Use LLM to determine optimal sleep duration based on context
+     */
+    private async determineSleepDuration(context: ThinkingContext, apiKey: string): Promise<number> {
+        try {
+            const anthropic = new Anthropic({ apiKey });
+
+            const prompt = `You are an autonomous agent deciding how long to sleep before your next thinking cycle.
+
+Current time: ${context.currentTime.toLocaleString()}
+Day: ${context.dayOfWeek}
+
+CONTEXT:
+- Upcoming events in next 24h: ${context.upcomingEvents.filter(e => {
+    const eventTime = new Date(e.startTime);
+    return eventTime.getTime() - Date.now() < 24 * 60 * 60 * 1000;
+}).length}
+- Active goals: ${context.activeGoals.length}
+- Pending reminders: ${context.recentReminders.length}
+- User's typical wake time: Based on sleep patterns
+- Time of day: ${context.currentTime.getHours()}:00
+
+RULES:
+- Return a number between 1 and 12 (hours)
+- Sleep LESS (1-3 hours) if:
+  * Important events coming up soon
+  * It's during the user's active hours (8am-10pm)
+  * There are urgent goals or reminders
+- Sleep MORE (4-8 hours) if:
+  * It's late night or early morning (user sleeping)
+  * No urgent matters
+  * Things are generally calm
+- Sleep LONGEST (8-12 hours) if:
+  * It's the middle of the night
+  * User likely won't need you for a while
+
+Respond with ONLY a single integer (1-12) representing hours to sleep.`;
+
+            const response = await anthropic.messages.create({
+                model: 'claude-haiku-4-5-20251001', // Fast decision
+                max_tokens: 10,
+                messages: [{ role: 'user', content: prompt }]
+            });
+
+            if (response.content?.[0]?.type === 'text') {
+                const hours = parseInt(response.content[0].text.trim());
+                if (!isNaN(hours) && hours >= 1 && hours <= 12) {
+                    logger.info(`Agent decided to sleep for ${hours} hours based on context`);
+                    return hours;
+                }
+            }
+
+            return this.defaultSleepHours;
+        } catch (error) {
+            logger.error('Failed to determine sleep duration', { error });
+            return this.defaultSleepHours;
         }
     }
 
     /**
      * Deep thinking about a specific user's life
+     * Returns context and apiKey for sleep duration decision
      */
-    private async thinkAboutUser(userId: string): Promise<void> {
+    private async thinkAboutUser(userId: string): Promise<{ context: ThinkingContext | null; apiKey: string | null }> {
         logger.info(`Autonomous thinking for user ${userId}`);
 
         const apiKey = await this.billingService.getDecryptedKey(userId, 'anthropic');
         if (!apiKey) {
             logger.debug(`No API key for user ${userId}, skipping autonomous thinking`);
-            return;
+            return { context: null, apiKey: null };
         }
 
         // Auto-plan any goals without milestones
@@ -151,6 +255,8 @@ export class AutonomousAgentService {
 
         // Act on insights
         await this.actOnInsights(userId, insights, context);
+
+        return { context, apiKey };
     }
 
     /**
