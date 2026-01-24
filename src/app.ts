@@ -15,8 +15,8 @@ import { createLlmRoutes } from "./api/routes/llm.js";
 import { createSmsRouter } from "./api/routes/sms.js";
 import { createVoiceRouter } from "./api/routes/voice.js";
 import { TwilioSmsProvider } from "./integrations/twilio.js";
-import { ElevenLabsVoiceProvider } from "./integrations/voice/elevenlabs-provider.js";
-// Note: OpenAI STT removed - use local STT solution instead
+import { WhisperLocalProvider } from "./integrations/voice/whisper-local-provider.js";
+import { PiperTTSProvider } from "./integrations/voice/piper-tts-provider.js";
 import { AssistantService } from "./services/assistant.js";
 import { BillingService } from "./services/billing.js";
 import { LlmService } from "./services/llm.js";
@@ -202,17 +202,22 @@ export class App {
       this.billingService
     );
 
-    // Initialize Voice components
-    const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY || "";
+    // Initialize Voice components (100% local - no API costs!)
+    const whisperModelPath = process.env.WHISPER_MODEL_PATH || "./models/whisper/ggml-base.en.bin";
+    const piperModelPath = process.env.PIPER_MODEL_PATH || "./models/piper/en_US-lessac-medium.onnx";
 
-    // TODO: Implement local STT provider (Whisper.cpp, Vosk, etc.)
-    // For now, voice service will need STT provider to be null or use a local implementation
-    const ttsProvider = new ElevenLabsVoiceProvider({
-      apiKey: elevenLabsApiKey,
+    const sttProvider = new WhisperLocalProvider({
+      modelPath: whisperModelPath,
+      language: "en",
+      threads: 4
     });
 
-    // STT temporarily disabled - use local solution
-    this.voiceService = new VoiceService(this.db, null as any, ttsProvider);
+    const ttsProvider = new PiperTTSProvider({
+      modelPath: piperModelPath,
+      lengthScale: 1.0 // Adjust speed: <1.0 faster, >1.0 slower
+    });
+
+    this.voiceService = new VoiceService(this.db, sttProvider, ttsProvider);
 
     // Initialize Socket service
     this.socketService = new SocketService(
