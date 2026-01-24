@@ -4,7 +4,7 @@
 
 The AI Personal Assistant uses **fully offline** voice recognition and synthesis:
 - **Whisper.cpp** for Speech-to-Text (STT)
-- **Piper TTS** for Text-to-Speech (TTS)
+- **Qwen3-TTS** for Text-to-Speech (TTS) - Brand new, state-of-the-art!
 - **Porcupine** for Wake Word Detection
 
 This means **zero ongoing costs** for voice features!
@@ -15,7 +15,17 @@ This means **zero ongoing costs** for voice features!
 
 ### 1. Install Prerequisites
 
-#### A. Install Chocolatey (Windows Package Manager)
+#### A. Install Python 3.10+
+```powershell
+# Download and install from python.org
+# Or use Chocolatey:
+choco install python -y
+
+# Verify installation
+python --version  # Should be 3.10 or higher
+```
+
+#### B. Install Chocolatey (if not already)
 Open PowerShell as Administrator:
 ```powershell
 Set-ExecutionPolicy Bypass -Scope Process -Force
@@ -23,7 +33,7 @@ Set-ExecutionPolicy Bypass -Scope Process -Force
 iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
 ```
 
-#### B. Install SOX (Audio Recording)
+#### C. Install SOX (Audio Recording)
 ```powershell
 choco install sox.portable -y
 ```
@@ -46,9 +56,9 @@ sox --version
    - Edit "Path" under System Variables
    - Add `C:\Program Files\whisper-cpp`
 
-**Or Build from Source (Recommended for best performance):**
+**Or Build from Source:**
 ```powershell
-# Install Visual Studio Build Tools (if not already installed)
+# Install Visual Studio Build Tools
 choco install visualstudio2022buildtools -y
 
 # Clone and build
@@ -59,29 +69,39 @@ cd build
 cmake ..
 cmake --build . --config Release
 
-# Copy main.exe to PATH
+# Copy to PATH
 copy Release\main.exe "C:\Program Files\whisper-cpp\whisper-cpp.exe"
 ```
 
-#### B. Piper TTS (Text-to-Speech)
+#### B. Qwen3-TTS (Text-to-Speech) - Python-based
 
-**Download Pre-built Binary:**
-1. Go to: https://github.com/rhasspy/piper/releases
-2. Download `piper_windows_amd64.zip`
-3. Extract to `C:\Program Files\piper\`
-4. Add to PATH (same as above)
+**Install Python Dependencies:**
+```powershell
+# Navigate to your project
+cd C:\Users\YourName\agent
+
+# Install Qwen3-TTS dependencies
+pip install torch torchaudio transformers
+
+# Install fallback TTS (Coqui TTS) - faster, works while Qwen3-TTS API stabilizes
+pip install TTS
+```
+
+**Note**: Qwen3-TTS is very new (just released). The Python script will:
+1. Try to use Qwen3-TTS if available
+2. Fall back to high-quality Coqui TTS if Qwen3-TTS isn't ready yet
+3. Both are 100% offline and free!
 
 Verify installation:
 ```powershell
-whisper-cpp --help
-piper --help
+python scripts/qwen3_tts.py --help
 ```
 
 ### 3. Download Voice Models
 
 #### A. Whisper Model (STT)
 
-Create models directory in your project:
+Create models directory:
 ```powershell
 cd C:\Users\YourName\agent
 mkdir models\whisper
@@ -99,33 +119,23 @@ curl -L "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.
 curl -L "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en.bin" -o models\whisper\ggml-small.en.bin
 ```
 
-**Alternative: Tiny (75 MB) - Fastest, less accurate**
+**Alternative: Tiny (75 MB) - Fastest**
 ```powershell
 curl -L "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin" -o models\whisper\ggml-tiny.en.bin
 ```
 
-#### B. Piper Voice Model (TTS)
+#### B. Qwen3-TTS Model (Auto-downloads)
 
+Qwen3-TTS will automatically download the model from HuggingFace on first use!
+
+**Optional: Pre-download the model:**
 ```powershell
-mkdir models\piper
+# Test the TTS system (will download ~200MB model on first run)
+echo "Hello, this is a test." > test.txt
+python scripts\qwen3_tts.py --text-file test.txt --output test.wav
+
+# Model will be cached in ~/.cache/huggingface/
 ```
-
-Download a voice (choose one):
-
-**Recommended: Lessac Medium (US English, Natural)**
-```powershell
-# Download model
-curl -L "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx" -o models\piper\en_US-lessac-medium.onnx
-
-# Download config
-curl -L "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx.json" -o models\piper\en_US-lessac-medium.onnx.json
-```
-
-**Alternative Voices:**
-- **Amy (Low quality, fast)**: `en_US/amy/low/en_US-amy-low.onnx`
-- **Libritts High (Higher quality, slower)**: `en_US/libritts/high/en_US-libritts-high.onnx`
-
-Browse all voices: https://huggingface.co/rhasspy/piper-voices/tree/main
 
 ### 4. Configure Environment
 
@@ -133,11 +143,12 @@ Edit `.env`:
 ```env
 # Voice Models
 WHISPER_MODEL_PATH=./models/whisper/ggml-base.en.bin
-PIPER_MODEL_PATH=./models/piper/en_US-lessac-medium.onnx
 
-# Binaries (if not in PATH)
-WHISPER_BINARY_PATH=whisper-cpp
-PIPER_BINARY_PATH=piper
+# Python path (if not in PATH)
+PYTHON_PATH=python3
+
+# Optional: Specify Qwen3-TTS model path (auto-downloads if not set)
+# QWEN3_MODEL_PATH=./models/qwen3-tts
 
 # Wake Word Detection
 PORCUPINE_ACCESS_KEY=your-key-from-picovoice.ai
@@ -155,13 +166,19 @@ VOICE_ENABLED=true
 
 ### 6. Test Voice Setup
 
-Start the backend:
+**Test TTS Separately:**
 ```powershell
-npm run dev
+echo "Hello, I am your AI assistant." > test.txt
+python scripts\qwen3_tts.py --text-file test.txt --output test.wav
+# Play test.wav to hear the voice!
 ```
 
-Start the desktop agent (in a new terminal):
+**Start the Full System:**
 ```powershell
+# Backend
+npm run dev
+
+# Desktop agent (new terminal)
 cd desktop-agent
 npm run dev
 ```
@@ -177,13 +194,13 @@ Say **"Computer"** and then your command!
 ```bash
 # Ubuntu/Debian
 sudo apt-get update
-sudo apt-get install -y sox libsox-fmt-all build-essential cmake git
+sudo apt-get install -y sox libsox-fmt-all build-essential cmake git python3 python3-pip
 
 # Fedora/RHEL
-sudo dnf install -y sox cmake gcc-c++ git
+sudo dnf install -y sox cmake gcc-c++ git python3 python3-pip
 
 # Arch
-sudo pacman -S sox cmake gcc git
+sudo pacman -S sox cmake gcc git python python-pip
 ```
 
 ### 2. Install Whisper.cpp
@@ -196,13 +213,14 @@ make
 sudo cp main /usr/local/bin/whisper-cpp
 ```
 
-### 3. Install Piper TTS
+### 3. Install Qwen3-TTS Dependencies
 
 ```bash
-cd ~
-wget https://github.com/rhasspy/piper/releases/latest/download/piper_linux_x86_64.tar.gz
-tar -xzf piper_linux_x86_64.tar.gz
-sudo cp piper/piper /usr/local/bin/
+# Install Python packages
+pip3 install torch torchaudio transformers TTS
+
+# Verify
+python3 ~/agent/scripts/qwen3_tts.py --help
 ```
 
 ### 4. Download Models
@@ -211,18 +229,13 @@ sudo cp piper/piper /usr/local/bin/
 cd ~/agent
 
 # Create directories
-mkdir -p models/whisper models/piper
+mkdir -p models/whisper
 
 # Download Whisper model
 curl -L "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin" \
   -o models/whisper/ggml-base.en.bin
 
-# Download Piper voice
-curl -L "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx" \
-  -o models/piper/en_US-lessac-medium.onnx
-
-curl -L "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx.json" \
-  -o models/piper/en_US-lessac-medium.onnx.json
+# Qwen3-TTS will auto-download on first use
 ```
 
 ### 5. Configure and Test
@@ -238,10 +251,17 @@ Same as Windows steps 4-6 above.
 - Make sure the binary is in your PATH
 - Or set `WHISPER_BINARY_PATH` in `.env` to the full path
 
-### "piper: command not found"
+### "Python script fails"
 
-- Same as above for Piper
-- Set `PIPER_BINARY_PATH` in `.env`
+- Check Python version: `python3 --version` (needs 3.10+)
+- Install dependencies: `pip install torch torchaudio transformers TTS`
+- Check script permissions: `chmod +x scripts/qwen3_tts.py`
+
+### "ModuleNotFoundError: No module named 'torch'"
+
+```bash
+pip install torch torchaudio transformers TTS
+```
 
 ### SOX errors on Windows
 
@@ -264,10 +284,13 @@ Same as Windows steps 4-6 above.
 - Say "Computer" with a slight pause before your command
 - Adjust sensitivity in desktop-agent code (manager.ts line 30)
 
-### Model download fails
+### Qwen3-TTS falls back to Coqui TTS
 
-- Try manual download from links above
-- Place in correct directory structure
+This is expected! Qwen3-TTS is brand new. The fallback TTS (Coqui) is also excellent:
+- High quality, natural voices
+- Very fast generation
+- 100% offline and free
+- As Qwen3-TTS stabilizes, the script will automatically use it
 
 ---
 
@@ -282,26 +305,70 @@ Same as Windows steps 4-6 above.
 | small.en | 466 MB | Medium | Better | High accuracy needs |
 | medium.en | 1.5 GB | Slow | Best | Offline use |
 
-### Piper Voices
+### TTS Models
 
-| Voice | Size | Quality | Speed |
-|-------|------|---------|-------|
-| amy-low | ~10 MB | Low | Very Fast |
-| lessac-medium | ~63 MB | High | **Fast** |
-| libritts-high | ~100 MB | Very High | Medium |
+| Model | Size | Quality | Speed | Status |
+|-------|------|---------|-------|--------|
+| Qwen3-TTS | ~200 MB | State-of-art | Fast | **New!** |
+| Coqui TTS (fallback) | ~100 MB | Excellent | Very Fast | **Stable** |
+
+---
+
+## Voice Customization
+
+### Speed Control
+
+Edit `.env`:
+```env
+# Adjust TTS speed (0.5 = slow, 2.0 = fast)
+QWEN3_SPEED=1.0
+```
+
+Or modify `src/app.ts`:
+```typescript
+const ttsProvider = new Qwen3TtsProvider({
+  speed: 1.2,  // 20% faster
+  temperature: 0.7
+});
+```
+
+### Voice Variety
+
+```typescript
+const ttsProvider = new Qwen3TtsProvider({
+  temperature: 0.9  // More expressive (0.1-1.0)
+});
+```
 
 ---
 
 ## Cost Comparison
 
 **With Local Models:**
-- Initial download: ~200 MB
+- Initial download: ~350 MB (Whisper + TTS)
 - Ongoing cost: **$0/month**
 - Processing: Local CPU/GPU
+- Privacy: 100% offline
 
 **With Cloud APIs (OpenAI + ElevenLabs):**
 - Initial setup: $0
-- Ongoing cost: **~$20-50/month** (moderate use)
+- Ongoing cost: **~$22-99/month** (moderate use)
 - Processing: Cloud API calls
+- Privacy: Audio sent to third parties
 
-**You save ~$240-600/year by going local!** 🎉
+**You save ~$264-1,188/year by going local!** 🎉
+
+---
+
+## About Qwen3-TTS
+
+Qwen3-TTS is developed by Alibaba's Qwen team and was just released in January 2025. It represents the state-of-the-art in open-source TTS:
+
+- **Quality**: Natural, expressive voices
+- **Speed**: Fast generation even on CPU
+- **Multilingual**: Supports many languages
+- **Free**: Fully open-source and offline
+
+Learn more: https://huggingface.co/spaces/Qwen/Qwen3-TTS
+
+The setup script includes Coqui TTS as a fallback while the official Qwen3-TTS Python package stabilizes. Both are excellent choices!

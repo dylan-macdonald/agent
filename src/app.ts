@@ -16,7 +16,7 @@ import { createSmsRouter } from "./api/routes/sms.js";
 import { createVoiceRouter } from "./api/routes/voice.js";
 import { TwilioSmsProvider } from "./integrations/twilio.js";
 import { WhisperLocalProvider } from "./integrations/voice/whisper-local-provider.js";
-import { PiperTTSProvider } from "./integrations/voice/piper-tts-provider.js";
+import { Qwen3TtsProvider } from "./integrations/voice/qwen3-tts-provider.js";
 import { AssistantService } from "./services/assistant.js";
 import { BillingService } from "./services/billing.js";
 import { LlmService } from "./services/llm.js";
@@ -204,7 +204,8 @@ export class App {
 
     // Initialize Voice components (100% local - no API costs!)
     const whisperModelPath = process.env.WHISPER_MODEL_PATH || "./models/whisper/ggml-base.en.bin";
-    const piperModelPath = process.env.PIPER_MODEL_PATH || "./models/piper/en_US-lessac-medium.onnx";
+    const qwen3ModelPath = process.env.QWEN3_MODEL_PATH; // Optional, auto-downloads if not set
+    const pythonPath = process.env.PYTHON_PATH || "python3";
 
     const sttProvider = new WhisperLocalProvider({
       modelPath: whisperModelPath,
@@ -212,9 +213,11 @@ export class App {
       threads: 4
     });
 
-    const ttsProvider = new PiperTTSProvider({
-      modelPath: piperModelPath,
-      lengthScale: 1.0 // Adjust speed: <1.0 faster, >1.0 slower
+    const ttsProvider = new Qwen3TtsProvider({
+      pythonPath,
+      modelPath: qwen3ModelPath,
+      speed: 1.0, // Adjust speed: 0.5-2.0
+      temperature: 0.7 // Voice variety: 0.1-1.0
     });
 
     this.voiceService = new VoiceService(this.db, sttProvider, ttsProvider);
