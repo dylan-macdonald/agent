@@ -21,6 +21,7 @@ import { SmsService } from './sms.js';
 import { SocketService } from './socket.js';
 import { LlmService } from './llm.js';
 import { MessagePriority } from '../types/sms.js';
+import { NotificationPriority } from '../types/notification.js';
 
 interface AgentInsight {
     type: 'task_suggestion' | 'reminder_suggestion' | 'pattern_observation' |
@@ -617,11 +618,14 @@ Return JSON array of insights.`;
         // Store insights for dashboard
         await this.storeInsights(userId, insights);
 
-        // Notify user via WebSocket
+        // Notify user via WebSocket (legacy event for dashboard)
         this.socketService.notifySystemEvent(userId, 'new_insights', {
             count: insights.length,
             insights: insights.map(i => ({ type: i.type, title: i.title, priority: i.priority }))
         });
+
+        // Send desktop notifications for each insight
+        await this.sendInsightNotifications(userId, insights, context);
 
         // Handle high-priority actionable insights
         for (const insight of insights) {
@@ -705,6 +709,66 @@ Return JSON array of insights.`;
             }
         } catch (error) {
             logger.error(`Failed to execute action for insight: ${insight.title}`, { error });
+        }
+    }
+
+    /**
+     * Send desktop notifications for insights
+     */
+    private async sendInsightNotifications(userId: string, insights: AgentInsight[], context: ThinkingContext): Promise<void> {
+        // Check if desktop agent is connected
+        if (!this.socketService.hasDesktopAgent(userId)) {
+            logger.debug(`No desktop agent connected for user ${userId}, skipping notifications`);
+            return;
+        }
+
+        // Check user notification preferences
+        const settings = await this.settingsService.getSettings(userId);
+        if (!settings.reminderNotificationsEnabled) {
+            logger.debug(`Notifications disabled for user ${userId}`);
+            return;
+        }
+
+        // Send notification for each insight (up to 3 to avoid spam)
+        const insightsToNotify = insights.slice(0, 3);
+
+        for (const insight of insightsToNotify) {
+            const priority = this.mapInsightPriority(insight.priority);
+
+            this.socketService.sendInsightNotification(
+                userId,
+                insight.title,
+                insight.description,
+                priority,
+                {
+                    insightType: insight.type,
+                    actionable: insight.actionable ? true : false
+                }
+            );
+
+            // Small delay to avoid overwhelming
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
+
+        // If there are more insights, send a summary notification
+        if (insights.length > 3) {
+            this.socketService.sendInsightNotification(
+                userId,
+                `${insights.length - 3} more insights`,
+                'Open the dashboard to see all insights',
+                NotificationPriority.LOW
+            );
+        }
+    }
+
+    /**
+     * Map agent insight priority to notification priority
+     */
+    private mapInsightPriority(priority: 'low' | 'medium' | 'high'): NotificationPriority {
+        switch (priority) {
+            case 'high': return NotificationPriority.HIGH;
+            case 'medium': return NotificationPriority.MEDIUM;
+            default: return NotificationPriority.LOW;
         }
     }
 

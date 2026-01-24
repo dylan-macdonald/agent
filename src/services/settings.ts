@@ -19,6 +19,14 @@ export interface UserSettings {
     morningCheckInsEnabled: boolean;
     eveningReflectionsEnabled: boolean;
     reminderNotificationsEnabled: boolean;
+    // Desktop Notification Settings
+    desktopNotificationsEnabled: boolean;
+    insightNotificationsEnabled: boolean;
+    goalNotificationsEnabled: boolean;
+    notificationMinPriority: 'low' | 'medium' | 'high';
+    notificationSoundEnabled: boolean;
+    notificationQuietHoursStart?: string; // HH:MM
+    notificationQuietHoursEnd?: string; // HH:MM
     // Check-in Times
     morningCheckInTime: string; // HH:MM format
     eveningCheckInTime: string; // HH:MM format
@@ -45,6 +53,14 @@ export interface UpdateSettingsDTO {
     morningCheckInsEnabled?: boolean;
     eveningReflectionsEnabled?: boolean;
     reminderNotificationsEnabled?: boolean;
+    // Desktop Notification Settings
+    desktopNotificationsEnabled?: boolean;
+    insightNotificationsEnabled?: boolean;
+    goalNotificationsEnabled?: boolean;
+    notificationMinPriority?: 'low' | 'medium' | 'high';
+    notificationSoundEnabled?: boolean;
+    notificationQuietHoursStart?: string;
+    notificationQuietHoursEnd?: string;
     morningCheckInTime?: string;
     eveningCheckInTime?: string;
     timezone?: string;
@@ -66,6 +82,14 @@ const DEFAULT_SETTINGS: Omit<UserSettings, 'userId' | 'createdAt' | 'updatedAt'>
     morningCheckInsEnabled: true,
     eveningReflectionsEnabled: true,
     reminderNotificationsEnabled: true,
+    // Desktop Notification defaults
+    desktopNotificationsEnabled: true,
+    insightNotificationsEnabled: true,
+    goalNotificationsEnabled: true,
+    notificationMinPriority: 'low',
+    notificationSoundEnabled: true,
+    notificationQuietHoursStart: undefined,
+    notificationQuietHoursEnd: undefined,
     morningCheckInTime: '08:00',
     eveningCheckInTime: '21:00',
     timezone: 'UTC',
@@ -206,6 +230,34 @@ export class SettingsService {
             fields.push(`adaptive_timing = $${idx++}`);
             values.push(updates.adaptiveTiming);
         }
+        if (updates.desktopNotificationsEnabled !== undefined) {
+            fields.push(`desktop_notifications_enabled = $${idx++}`);
+            values.push(updates.desktopNotificationsEnabled);
+        }
+        if (updates.insightNotificationsEnabled !== undefined) {
+            fields.push(`insight_notifications_enabled = $${idx++}`);
+            values.push(updates.insightNotificationsEnabled);
+        }
+        if (updates.goalNotificationsEnabled !== undefined) {
+            fields.push(`goal_notifications_enabled = $${idx++}`);
+            values.push(updates.goalNotificationsEnabled);
+        }
+        if (updates.notificationMinPriority !== undefined) {
+            fields.push(`notification_min_priority = $${idx++}`);
+            values.push(updates.notificationMinPriority);
+        }
+        if (updates.notificationSoundEnabled !== undefined) {
+            fields.push(`notification_sound_enabled = $${idx++}`);
+            values.push(updates.notificationSoundEnabled);
+        }
+        if (updates.notificationQuietHoursStart !== undefined) {
+            fields.push(`notification_quiet_hours_start = $${idx++}`);
+            values.push(updates.notificationQuietHoursStart);
+        }
+        if (updates.notificationQuietHoursEnd !== undefined) {
+            fields.push(`notification_quiet_hours_end = $${idx++}`);
+            values.push(updates.notificationQuietHoursEnd);
+        }
 
         if (fields.length === 0) {
             return await this.getSettings(userId);
@@ -343,6 +395,14 @@ export class SettingsService {
             morningCheckInsEnabled: row.morning_check_ins_enabled,
             eveningReflectionsEnabled: row.evening_reflections_enabled,
             reminderNotificationsEnabled: row.reminder_notifications_enabled,
+            // Desktop notification settings (with defaults for migration)
+            desktopNotificationsEnabled: row.desktop_notifications_enabled ?? true,
+            insightNotificationsEnabled: row.insight_notifications_enabled ?? true,
+            goalNotificationsEnabled: row.goal_notifications_enabled ?? true,
+            notificationMinPriority: row.notification_min_priority ?? 'low',
+            notificationSoundEnabled: row.notification_sound_enabled ?? true,
+            notificationQuietHoursStart: row.notification_quiet_hours_start,
+            notificationQuietHoursEnd: row.notification_quiet_hours_end,
             morningCheckInTime: row.morning_check_in_time,
             eveningCheckInTime: row.evening_check_in_time,
             timezone: row.timezone,

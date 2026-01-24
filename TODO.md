@@ -563,23 +563,38 @@ This project is **NOT a chatbot wrapper**. It is a **Self-Sufficient Personal As
 **Goal**: Transform into a proactive agent that adapts to the user's schedule and actively engages via voice.
 
 ### 9A. Infrastructure & Settings
-- [~] Update `user_api_keys` constraints for new providers (Twilio, ElevenLabs)
-- [~] Update `SettingsService` & API to handle new keys and adaptive preferences
+- [x] Update `user_api_keys` constraints for new providers (Twilio, ElevenLabs)
+- [x] Update `SettingsService` & API to handle new keys and adaptive preferences
+- [x] Add desktop notification preferences to user settings
 - [ ] Update Frontend `Settings.tsx` with new key inputs
 
 ### 9B. Adaptive Scheduling
-- [ ] Add `wake_time` / `sleep_time` to User Settings
-- [ ] Update `CheckInScheduler` to use dynamic times
-- [ ] Implement "Adaptive Logic" (Average sleep time from `SleepService`)
+- [x] Add `wake_time` / `sleep_time` to User Settings
+- [x] Update `CheckInScheduler` to use dynamic times
+- [x] Implement "Adaptive Logic" (Average sleep time from `SleepService`)
 
-### 9C. Voice Alarms
-- [ ] Create `VoiceAlarmService` (Twilio Call + TwiML)
-- [ ] Implement "Listen & Hangup" logic
-- [ ] Integrate with `CheckInScheduler`
+### 9C. Voice Alarms (COMPLETE)
+- [x] Create `VoiceAlarmService` (Twilio Call + TwiML)
+- [x] Implement "Listen & Hangup" logic with speech recognition
+- [x] Integrate with `CheckInScheduler`
+- [x] Add call logging to database (`voice_calls` table)
+- [x] Implement retry logic for unanswered calls
+- [x] Track call costs and integrate with billing
+- [x] Add voice call API routes (`/api/voice/*`)
+- [x] Support multiple call types (wake_up, reminder, urgent, check_in)
 
-### 9D. Proactivity
-- [ ] Connect `LlmService` to Check-ins (Context-aware briefings)
-- [ ] Verify End-to-End
+### 9D. Desktop Notifications (COMPLETE)
+- [x] Add notification types and preferences (`src/types/notification.ts`)
+- [x] Extend SocketService with notification methods
+- [x] Send desktop notifications for autonomous agent insights
+- [x] Electron notification integration in desktop agent
+- [x] Notification preferences in tray menu (enable/disable, priority filter, sound)
+- [x] Click-to-open dashboard from notifications
+
+### 9E. Proactivity
+- [x] Connect `LlmService` to Check-ins (Context-aware briefings)
+- [ ] Verify End-to-End with real devices
 | 2026-01-20T18:40:00Z | Antigravity         | **MVP-11 COMPLETE**: Optimizations & UI Polish. Merged Smart Router/Memory Gatekeeper into single LLM call (-50% API usage). Added Accent Color customization in Settings. Fixed "New Mission" Reset Logic. Refactored AssistantService for strict types. |
 | 2026-01-20T19:45:00Z | Antigravity         | **BUG FIXES & RESET**: Fixed "one-off message" issue by implementing Redis conversation history and passing it to LLM. Tightened `WORKOUT_LOG` regex to prevent false positives. Created `reset-db.ts` and intercepted full database reset. |
 | 2026-01-24T00:00:00Z | Claude (Sonnet 4.5) | **FULL LOCAL VOICE**: Removed all Exa & OpenAI dependencies. Implemented 100% offline voice: Whisper.cpp (STT) + Qwen3-TTS (TTS - state-of-the-art, brand new!). Updated web search to use Claude's built-in search, vision to use Claude's vision. Added Windows 11 support for desktop agent. Created VOICE_SETUP.md with Python-based TTS setup. Zero ongoing API costs for voice! |
+| 2026-01-24T03:00:00Z | Claude (Opus 4.5)   | **MVP-9 PROGRESS**: Implemented Desktop Notifications (SocketService notification methods, Electron native notifications, notification preferences, tray menu controls) and Voice Alarm Calls (enhanced VoiceAlarmService with call logging, retry logic, cost tracking, TwiML generation, status callbacks). Added 2 database migrations (voice_calls table, notification settings). Created 22 unit tests (all passing). |

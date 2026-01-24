@@ -1,9 +1,29 @@
-import { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, desktopCapturer } from "electron";
+import { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, desktopCapturer, Notification, shell } from "electron";
 import * as path from "path";
 import { fileURLToPath } from "url";
 import log from "electron-log";
 import { io, Socket } from "socket.io-client";
 import { AudioManager, AudioState } from "./audio/manager.js";
+
+// Notification preferences (stored in memory, could be persisted)
+interface NotificationPrefs {
+  enabled: boolean;
+  soundEnabled: boolean;
+  insightsEnabled: boolean;
+  remindersEnabled: boolean;
+  minPriority: 'low' | 'medium' | 'high';
+}
+
+const notificationPrefs: NotificationPrefs = {
+  enabled: true,
+  soundEnabled: true,
+  insightsEnabled: true,
+  remindersEnabled: true,
+  minPriority: 'low'
+};
+
+// Priority levels for filtering
+const priorityLevels = { low: 0, medium: 1, high: 2 };
 
 // Handle ES modules in Electron
 const __filename = fileURLToPath(import.meta.url);
@@ -28,6 +48,7 @@ function setupSocket() {
     query: {
       userId: USER_ID,
       deviceId: DEVICE_ID,
+      type: 'desktop',
     },
     reconnection: true,
     reconnectionAttempts: Infinity,
@@ -82,6 +103,93 @@ function setupSocket() {
   socket.on("error", (data: { message: string }) => {
     log.error(`Socket error: ${data.message}`);
   });
+
+  // Handle desktop notifications
+  socket.on("desktop-notification", (notification: {
+    id: string;
+    type: string;
+    priority: 'low' | 'medium' | 'high';
+    title: string;
+    body: string;
+    actionUrl?: string;
+    requireInteraction?: boolean;
+    data?: Record<string, unknown>;
+  }) => {
+    log.info(`Received desktop notification: ${notification.title}`);
+    showDesktopNotification(notification);
+  });
+}
+
+/**
+ * Show a native desktop notification
+ */
+function showDesktopNotification(notification: {
+  id: string;
+  type: string;
+  priority: 'low' | 'medium' | 'high';
+  title: string;
+  body: string;
+  actionUrl?: string;
+  requireInteraction?: boolean;
+  data?: Record<string, unknown>;
+}): void {
+  // Check if notifications are enabled
+  if (!notificationPrefs.enabled) {
+    log.debug("Notifications disabled, skipping");
+    return;
+  }
+
+  // Check priority filter
+  const notifPriority = priorityLevels[notification.priority] ?? 0;
+  const minPriority = priorityLevels[notificationPrefs.minPriority] ?? 0;
+  if (notifPriority < minPriority) {
+    log.debug(`Notification priority ${notification.priority} below minimum ${notificationPrefs.minPriority}`);
+    return;
+  }
+
+  // Check type-specific settings
+  if (notification.type === 'insight' && !notificationPrefs.insightsEnabled) {
+    log.debug("Insight notifications disabled");
+    return;
+  }
+  if (notification.type === 'reminder' && !notificationPrefs.remindersEnabled) {
+    log.debug("Reminder notifications disabled");
+    return;
+  }
+
+  // Check if Notification is supported
+  if (!Notification.isSupported()) {
+    log.warn("Native notifications not supported on this platform");
+    return;
+  }
+
+  // Create and show the notification
+  const electronNotification = new Notification({
+    title: notification.title,
+    body: notification.body,
+    icon: path.join(__dirname, "assets/icon.png"),
+    silent: !notificationPrefs.soundEnabled,
+    urgency: notification.priority === 'high' ? 'critical' :
+             notification.priority === 'medium' ? 'normal' : 'low',
+    timeoutType: notification.requireInteraction ? 'never' : 'default'
+  });
+
+  // Handle click - open dashboard URL
+  electronNotification.on("click", () => {
+    log.info(`Notification clicked: ${notification.id}`);
+    const dashboardUrl = process.env.ASSISTANT_DASHBOARD_URL || "http://localhost:5173";
+    const url = notification.actionUrl
+      ? `${dashboardUrl}${notification.actionUrl}`
+      : dashboardUrl;
+    shell.openExternal(url);
+  });
+
+  electronNotification.on("close", () => {
+    log.debug(`Notification closed: ${notification.id}`);
+  });
+
+  electronNotification.show();
+  log.info(`Desktop notification shown: ${notification.title}`);
 }
 
 function playAudio(buffer: ArrayBuffer) {
@@ -133,8 +241,72 @@ function updateTrayStatus(status: string) {
       {
         label: "Enable Voice",
         type: "checkbox",
-        checked: audioManager ? true : false, // roughly
+        checked: audioManager ? true : false,
         click: toggleVoice,
+      },
+      { type: "separator" },
+      {
+        label: "Notifications",
+        submenu: [
+          {
+            label: "Enable Notifications",
+            type: "checkbox",
+            checked: notificationPrefs.enabled,
+            click: (menuItem) => {
+              notificationPrefs.enabled = menuItem.checked;
+              log.info(`Notifications ${menuItem.checked ? 'enabled' : 'disabled'}`);
+            }
+          },
+          {
+            label: "Sound",
+            type: "checkbox",
+            checked: notificationPrefs.soundEnabled,
+            click: (menuItem) => {
+              notificationPrefs.soundEnabled = menuItem.checked;
+            }
+          },
+          { type: "separator" },
+          {
+            label: "Insight Alerts",
+            type: "checkbox",
+            checked: notificationPrefs.insightsEnabled,
+            click: (menuItem) => {
+              notificationPrefs.insightsEnabled = menuItem.checked;
+            }
+          },
+          {
+            label: "Reminder Alerts",
+            type: "checkbox",
+            checked: notificationPrefs.remindersEnabled,
+            click: (menuItem) => {
+              notificationPrefs.remindersEnabled = menuItem.checked;
+            }
+          },
+          { type: "separator" },
+          {
+            label: "Priority Filter",
+            submenu: [
+              {
+                label: "All (Low+)",
+                type: "radio",
+                checked: notificationPrefs.minPriority === 'low',
+                click: () => { notificationPrefs.minPriority = 'low'; }
+              },
+              {
+                label: "Medium+",
+                type: "radio",
+                checked: notificationPrefs.minPriority === 'medium',
+                click: () => { notificationPrefs.minPriority = 'medium'; }
+              },
+              {
+                label: "High Only",
+                type: "radio",
+                checked: notificationPrefs.minPriority === 'high',
+                click: () => { notificationPrefs.minPriority = 'high'; }
+              }
+            ]
+          }
+        ]
       },
       { type: "separator" },
       { label: "Settings", click: () => settingsWindow?.show() },

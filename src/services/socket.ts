@@ -10,6 +10,7 @@ import { Server as HttpServer } from "http";
 import { Server as SocketIOServer, Socket } from "socket.io";
 
 import { logger } from "../utils/logger.js";
+import { DesktopNotification, NotificationPriority, NotificationType } from "../types/notification.js";
 
 import { AssistantService } from "./assistant.js";
 import { VoiceService } from "./voice.js";
@@ -378,5 +379,91 @@ export class SocketService {
    */
   public notifySystemEvent(userId: string, event: string, data: any): void {
     this.io.to(`user:${userId}`).emit('system-event', { event, data, timestamp: new Date().toISOString() });
+  }
+
+  // ========== Desktop Notification Methods ==========
+
+  /**
+   * Send a desktop notification to user's connected agents
+   */
+  public sendDesktopNotification(userId: string, notification: Omit<DesktopNotification, 'id' | 'timestamp'>): void {
+    const fullNotification: DesktopNotification = {
+      ...notification,
+      id: randomUUID(),
+      timestamp: new Date()
+    };
+
+    logger.info('Sending desktop notification', { userId, type: notification.type, title: notification.title });
+
+    this.io.to(`user:${userId}`).emit('desktop-notification', fullNotification);
+  }
+
+  /**
+   * Send an insight notification (from autonomous agent)
+   */
+  public sendInsightNotification(
+    userId: string,
+    title: string,
+    body: string,
+    priority: NotificationPriority = NotificationPriority.MEDIUM,
+    data?: Record<string, unknown>
+  ): void {
+    this.sendDesktopNotification(userId, {
+      type: NotificationType.INSIGHT,
+      priority,
+      title,
+      body,
+      actionUrl: '/insights',
+      requireInteraction: priority === NotificationPriority.HIGH,
+      data
+    });
+  }
+
+  /**
+   * Send a reminder notification
+   */
+  public sendReminderNotification(
+    userId: string,
+    title: string,
+    body: string,
+    reminderId: string
+  ): void {
+    this.sendDesktopNotification(userId, {
+      type: NotificationType.REMINDER,
+      priority: NotificationPriority.HIGH,
+      title,
+      body,
+      actionUrl: `/reminders/${reminderId}`,
+      requireInteraction: true,
+      data: { reminderId }
+    });
+  }
+
+  /**
+   * Send a goal update notification
+   */
+  public sendGoalNotification(
+    userId: string,
+    title: string,
+    body: string,
+    goalId: string,
+    priority: NotificationPriority = NotificationPriority.MEDIUM
+  ): void {
+    this.sendDesktopNotification(userId, {
+      type: NotificationType.GOAL_UPDATE,
+      priority,
+      title,
+      body,
+      actionUrl: `/goals/${goalId}`,
+      data: { goalId }
+    });
+  }
+
+  /**
+   * Check if a desktop agent is connected for user
+   */
+  public hasDesktopAgent(userId: string): boolean {
+    const clients = this.getConnectedClients(userId);
+    return clients.some(c => c.type === 'desktop');
   }
 }
