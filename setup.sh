@@ -220,20 +220,26 @@ setup_environment() {
 
     print_success "Redis configuration saved"
 
+    # Required API keys
+    echo ""
+    echo -e "${BOLD}Required API Keys:${NC}"
+
+    read -p "Anthropic API Key (required): " -s anthropic_key
+    echo ""
+    if [ -n "$anthropic_key" ]; then
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            sed -i '' "s/ANTHROPIC_API_KEY=.*/ANTHROPIC_API_KEY=$anthropic_key/" .env
+        else
+            sed -i "s/ANTHROPIC_API_KEY=.*/ANTHROPIC_API_KEY=$anthropic_key/" .env
+        fi
+        print_success "Anthropic API key saved"
+    else
+        print_warning "Anthropic API key is required for AI functionality"
+    fi
+
     # Optional API keys
     echo ""
-    echo -e "${BOLD}API Keys (optional - press Enter to skip):${NC}"
-
-    read -p "OpenAI API Key: " -s openai_key
-    echo ""
-    if [ -n "$openai_key" ]; then
-        if [[ "$OSTYPE" == "darwin"* ]]; then
-            sed -i '' "s/OPENAI_API_KEY=.*/OPENAI_API_KEY=$openai_key/" .env
-        else
-            sed -i "s/OPENAI_API_KEY=.*/OPENAI_API_KEY=$openai_key/" .env
-        fi
-        print_success "OpenAI API key saved"
-    fi
+    echo -e "${BOLD}Optional API Keys (press Enter to skip):${NC}"
 
     read -p "Twilio Account SID: " twilio_sid
     if [ -n "$twilio_sid" ]; then
@@ -257,7 +263,13 @@ setup_environment() {
 
     echo ""
     print_success "Environment configuration complete!"
-    print_info "You can edit .env later to add more API keys (ElevenLabs, Picovoice, etc.)"
+    print_info "You can edit .env later to add more API keys (ElevenLabs, Porcupine, etc.)"
+
+    if [ -z "$anthropic_key" ]; then
+        echo ""
+        print_warning "IMPORTANT: Add your Anthropic API key to .env before starting the app"
+        print_info "Get one at: https://console.anthropic.com/settings/keys"
+    fi
 }
 
 # ============================================================================
@@ -615,6 +627,233 @@ quick_setup() {
 }
 
 # ============================================================================
+# VOICE SETUP (100% Local - Whisper + Piper)
+# ============================================================================
+
+check_voice_binaries() {
+    print_header "Checking Voice Binaries"
+
+    local all_good=true
+
+    # Check for Whisper.cpp
+    if check_command whisper-cpp || check_command whisper; then
+        print_success "Whisper STT binary found"
+    else
+        print_warning "Whisper.cpp not found"
+        print_info "Download from: https://github.com/ggerganov/whisper.cpp/releases"
+        all_good=false
+    fi
+
+    # Check for Piper TTS
+    if check_command piper; then
+        print_success "Piper TTS binary found"
+    else
+        print_warning "Piper TTS not found"
+        print_info "Download from: https://github.com/rhasspy/piper/releases"
+        all_good=false
+    fi
+
+    # Check for SOX (audio recording)
+    if check_command sox; then
+        print_success "SOX audio tool found"
+    else
+        print_warning "SOX not found (required for audio recording)"
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            print_info "Install with: brew install sox"
+        elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+            print_info "Install with: sudo apt-get install sox"
+        fi
+        all_good=false
+    fi
+
+    if [ "$all_good" = true ]; then
+        print_success "All voice binaries are installed!"
+    else
+        echo ""
+        print_info "See VOICE_SETUP.md for detailed installation instructions"
+    fi
+
+    press_enter
+}
+
+download_whisper_model() {
+    print_header "Download Whisper STT Model"
+
+    mkdir -p models/whisper
+
+    echo "Choose a Whisper model:"
+    echo "  1) tiny.en   (75 MB)  - Fast, basic accuracy"
+    echo "  2) base.en   (142 MB) - Good balance (recommended)"
+    echo "  3) small.en  (466 MB) - Better accuracy"
+    echo "  4) medium.en (1.5 GB) - Best accuracy"
+    echo ""
+    read -p "Enter choice [1-4]: " model_choice
+
+    case $model_choice in
+        1)
+            MODEL="tiny.en"
+            SIZE="75MB"
+            ;;
+        2)
+            MODEL="base.en"
+            SIZE="142MB"
+            ;;
+        3)
+            MODEL="small.en"
+            SIZE="466MB"
+            ;;
+        4)
+            MODEL="medium.en"
+            SIZE="1.5GB"
+            ;;
+        *)
+            print_error "Invalid choice"
+            return
+            ;;
+    esac
+
+    MODEL_FILE="ggml-${MODEL}.bin"
+    MODEL_PATH="models/whisper/${MODEL_FILE}"
+
+    if [ -f "$MODEL_PATH" ]; then
+        print_warning "Model already exists at $MODEL_PATH"
+        read -p "Re-download? (y/N): " redownload
+        if [[ ! "$redownload" =~ ^[Yy]$ ]]; then
+            return
+        fi
+    fi
+
+    print_info "Downloading $MODEL_FILE ($SIZE)..."
+    curl -L "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/${MODEL_FILE}" \
+        -o "$MODEL_PATH" --progress-bar
+
+    if [ $? -eq 0 ]; then
+        print_success "Downloaded to $MODEL_PATH"
+
+        # Update .env if it exists
+        if [ -f .env ]; then
+            if grep -q "WHISPER_MODEL_PATH=" .env; then
+                if [[ "$OSTYPE" == "darwin"* ]]; then
+                    sed -i '' "s|WHISPER_MODEL_PATH=.*|WHISPER_MODEL_PATH=./${MODEL_PATH}|" .env
+                else
+                    sed -i "s|WHISPER_MODEL_PATH=.*|WHISPER_MODEL_PATH=./${MODEL_PATH}|" .env
+                fi
+                print_success "Updated .env with model path"
+            fi
+        fi
+    else
+        print_error "Download failed"
+    fi
+
+    press_enter
+}
+
+download_piper_voice() {
+    print_header "Download Piper TTS Voice"
+
+    mkdir -p models/piper
+
+    echo "Choose a Piper voice:"
+    echo "  1) en_US-lessac-medium  (63 MB)  - Natural US English (recommended)"
+    echo "  2) en_US-amy-low        (10 MB)  - Fast, lower quality"
+    echo "  3) en_US-libritts-high  (100 MB) - Highest quality"
+    echo ""
+    read -p "Enter choice [1-3]: " voice_choice
+
+    case $voice_choice in
+        1)
+            VOICE="en_US/lessac/medium/en_US-lessac-medium"
+            SIZE="63MB"
+            ;;
+        2)
+            VOICE="en_US/amy/low/en_US-amy-low"
+            SIZE="10MB"
+            ;;
+        3)
+            VOICE="en_US/libritts/high/en_US-libritts-high"
+            SIZE="100MB"
+            ;;
+        *)
+            print_error "Invalid choice"
+            return
+            ;;
+    esac
+
+    VOICE_NAME=$(basename "$VOICE")
+    MODEL_FILE="${VOICE_NAME}.onnx"
+    CONFIG_FILE="${VOICE_NAME}.onnx.json"
+    MODEL_PATH="models/piper/${MODEL_FILE}"
+    CONFIG_PATH="models/piper/${CONFIG_FILE}"
+
+    if [ -f "$MODEL_PATH" ]; then
+        print_warning "Voice already exists at $MODEL_PATH"
+        read -p "Re-download? (y/N): " redownload
+        if [[ ! "$redownload" =~ ^[Yy]$ ]]; then
+            return
+        fi
+    fi
+
+    print_info "Downloading ${VOICE_NAME} ($SIZE)..."
+
+    # Download model
+    curl -L "https://huggingface.co/rhasspy/piper-voices/resolve/main/${VOICE}.onnx" \
+        -o "$MODEL_PATH" --progress-bar
+
+    if [ $? -ne 0 ]; then
+        print_error "Model download failed"
+        return
+    fi
+
+    # Download config
+    curl -L "https://huggingface.co/rhasspy/piper-voices/resolve/main/${VOICE}.onnx.json" \
+        -o "$CONFIG_PATH" --progress-bar
+
+    if [ $? -eq 0 ]; then
+        print_success "Downloaded to $MODEL_PATH"
+
+        # Update .env if it exists
+        if [ -f .env ]; then
+            if grep -q "PIPER_MODEL_PATH=" .env; then
+                if [[ "$OSTYPE" == "darwin"* ]]; then
+                    sed -i '' "s|PIPER_MODEL_PATH=.*|PIPER_MODEL_PATH=./${MODEL_PATH}|" .env
+                else
+                    sed -i "s|PIPER_MODEL_PATH=.*|PIPER_MODEL_PATH=./${MODEL_PATH}|" .env
+                fi
+                print_success "Updated .env with voice path"
+            fi
+        fi
+    else
+        print_error "Config download failed"
+    fi
+
+    press_enter
+}
+
+setup_voice_complete() {
+    print_header "Complete Voice Setup"
+
+    check_voice_binaries
+    echo ""
+
+    read -p "Download Whisper model? (Y/n): " dl_whisper
+    if [[ ! "$dl_whisper" =~ ^[Nn]$ ]]; then
+        download_whisper_model
+    fi
+
+    echo ""
+    read -p "Download Piper voice? (Y/n): " dl_piper
+    if [[ ! "$dl_piper" =~ ^[Nn]$ ]]; then
+        download_piper_voice
+    fi
+
+    echo ""
+    print_success "Voice setup complete!"
+    print_info "See VOICE_SETUP.md for detailed instructions on installing binaries"
+    print_info "Don't forget to set PORCUPINE_ACCESS_KEY in .env for wake word detection"
+    press_enter
+}
+
+# ============================================================================
 # MAIN MENU
 # ============================================================================
 
@@ -646,13 +885,19 @@ show_menu() {
     echo "    9)  Build Backend Only"
     echo "   10)  Build Web Dashboard Only"
     echo ""
+    echo -e "${BOLD}  Voice Setup (100% Local)${NC}"
+    echo "   11)  Complete Voice Setup (Check + Download Models)"
+    echo "   12)  Check Voice Binaries"
+    echo "   13)  Download Whisper STT Model"
+    echo "   14)  Download Piper TTS Voice"
+    echo ""
     echo -e "${BOLD}  Run${NC}"
-    echo "   11)  Start All Services (dev mode)"
-    echo "   12)  Start Backend Only"
-    echo "   13)  Start Web Dashboard Only"
+    echo "   15)  Start All Services (dev mode)"
+    echo "   16)  Start Backend Only"
+    echo "   17)  Start Web Dashboard Only"
     echo ""
     echo -e "${BOLD}  Test${NC}"
-    echo "   14)  Run Tests"
+    echo "   18)  Run Tests"
     echo ""
     echo -e "${BOLD}  Other${NC}"
     echo "    q)  Quit"
@@ -687,6 +932,10 @@ main() {
                 npm test
                 exit 0
                 ;;
+            "voice"|"--voice"|"-v")
+                setup_voice_complete
+                exit 0
+                ;;
             "help"|"--help"|"-h")
                 echo "AI Personal Assistant Setup Script"
                 echo ""
@@ -698,6 +947,7 @@ main() {
                 echo "  check     Check prerequisites"
                 echo "  install   Install all dependencies"
                 echo "  build     Build all projects"
+                echo "  voice     Setup voice models (Whisper + Piper)"
                 echo "  dev       Start all services in dev mode"
                 echo "  test      Run tests"
                 echo "  help      Show this help"
@@ -722,10 +972,14 @@ main() {
             8)  build_all; press_enter ;;
             9)  build_backend; press_enter ;;
             10) build_web; press_enter ;;
-            11) run_all_dev ;;
-            12) run_backend ;;
-            13) run_web ;;
-            14) run_tests; press_enter ;;
+            11) setup_voice_complete ;;
+            12) check_voice_binaries ;;
+            13) download_whisper_model ;;
+            14) download_piper_voice ;;
+            15) run_all_dev ;;
+            16) run_backend ;;
+            17) run_web ;;
+            18) run_tests; press_enter ;;
             q|Q)
                 echo ""
                 print_info "Goodbye!"

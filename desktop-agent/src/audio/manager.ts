@@ -42,11 +42,17 @@ export class AudioManager extends EventEmitter {
     this.state = AudioState.LISTENING_WAKE;
     this.emit("state-change", this.state);
 
+    // Detect platform and use appropriate recorder
+    const isWindows = process.platform === "win32";
+    const recorderBinary = isWindows ? "sox" : "rec"; // On Windows, use sox if available
+
     this.recording = recorder.record({
       sampleRate: this.porcupine.sampleRate,
       channels: 1,
       device: null,
-      recorder: "rec", // Use 'rec' (sox) or 'arecord' depending on system. Default is usually 'rec'.
+      recorder: recorderBinary,
+      // Windows-specific: use default audio device
+      ...(isWindows && { audioType: "waveaudio" })
     });
 
     this.recording.stream().on("data", (chunk: Buffer) => {

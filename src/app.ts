@@ -15,8 +15,8 @@ import { createLlmRoutes } from "./api/routes/llm.js";
 import { createSmsRouter } from "./api/routes/sms.js";
 import { createVoiceRouter } from "./api/routes/voice.js";
 import { TwilioSmsProvider } from "./integrations/twilio.js";
-import { ElevenLabsVoiceProvider } from "./integrations/voice/elevenlabs-provider.js";
-import { OpenAiVoiceProvider } from "./integrations/voice/openai-provider.js";
+import { WhisperLocalProvider } from "./integrations/voice/whisper-local-provider.js";
+import { Qwen3TtsProvider } from "./integrations/voice/qwen3-tts-provider.js";
 import { AssistantService } from "./services/assistant.js";
 import { BillingService } from "./services/billing.js";
 import { LlmService } from "./services/llm.js";
@@ -202,13 +202,22 @@ export class App {
       this.billingService
     );
 
-    // Initialize Voice components
-    const openAiApiKey = process.env.OPENAI_API_KEY || "";
-    const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY || "";
+    // Initialize Voice components (100% local - no API costs!)
+    const whisperModelPath = process.env.WHISPER_MODEL_PATH || "./models/whisper/ggml-base.en.bin";
+    const qwen3ModelPath = process.env.QWEN3_MODEL_PATH; // Optional, auto-downloads if not set
+    const pythonPath = process.env.PYTHON_PATH || "python3";
 
-    const sttProvider = new OpenAiVoiceProvider({ apiKey: openAiApiKey });
-    const ttsProvider = new ElevenLabsVoiceProvider({
-      apiKey: elevenLabsApiKey,
+    const sttProvider = new WhisperLocalProvider({
+      modelPath: whisperModelPath,
+      language: "en",
+      threads: 4
+    });
+
+    const ttsProvider = new Qwen3TtsProvider({
+      pythonPath,
+      modelPath: qwen3ModelPath,
+      speed: 1.0, // Adjust speed: 0.5-2.0
+      temperature: 0.7 // Voice variety: 0.1-1.0
     });
 
     this.voiceService = new VoiceService(this.db, sttProvider, ttsProvider);
@@ -220,8 +229,8 @@ export class App {
       this.voiceService
     );
 
-    // Register Vision Tool (requires socket service)
-    this.toolService.registerTool(new VisionTool(this.socketService));
+    // Register Vision Tool (requires socket service and billing service)
+    this.toolService.registerTool(new VisionTool(this.socketService, this.billingService));
 
     // Initialize Autonomous Agent (the "brain" that thinks independently)
     this.autonomousAgent = new AutonomousAgentService(

@@ -47,12 +47,12 @@ This project is **NOT a chatbot wrapper**. It is a **Self-Sufficient Personal As
 - **Web Dashboard**: A premium "Cyberpunk/Terminal" interface.
   - *Chat*: Full markdown support, history, and real-time responses.
   - *Settings*: Customize accent color, manage API keys (Anthropic/Twilio).
-- **Voice (Desktop)**: "Wake word" detection, Whisper STT, and ElevenLabs TTS.
+- **Voice (Desktop)**: "Wake word" detection (Porcupine), Local STT (Whisper.cpp), and Local TTS (Qwen3-TTS) - 100% offline!
 - **SMS**: Full two-way text capability (Twilio integration ready).
 
 #### 3. Tools & Capabilities
-- **Web Search**: *"Search for creepers"* → Uses Exa.ai for real-time answers.
-- **Vision**: *"Look at this"* → Captures screen & uses GPT-4o Vision.
+- **Web Search**: *"Search for information"* → Uses Claude's built-in web search for real-time answers.
+- **Vision**: *"Look at this"* → Captures screen & uses Claude's vision capabilities.
 - **Productivity**:
   - **Calendar**: "Schedule a meeting...".
   - **Reminders**: "Remind me to...".
@@ -175,23 +175,25 @@ This project is **NOT a chatbot wrapper**. It is a **Self-Sufficient Personal As
 - [x] **TEST**: Wake word detected reliably (Verified locally)
 - [ ] **TEST**: False positive rate acceptable
 
-### 4B. Speech-to-Text (COMPLETE)
+### 4B. Speech-to-Text (COMPLETE - Local Whisper.cpp)
 
 - [x] Design STT provider interface (IVoiceProvider)
-- [x] Create OpenAI Whisper provider scaffold (openai-provider.ts)
-- [x] Implement Whisper API integration
+- [x] Implement local STT solution (Whisper.cpp via WhisperLocalProvider)
 - [x] Build audio buffer handling for recording (AudioManager buffering)
 - [x] Create full audio capture after wake word
 - [x] **TEST**: Audio captures correctly after wake word (Streaming implemented)
-- [ ] **TEST**: Whisper transcribes accurately
+- [x] Setup script for downloading Whisper models
+- [ ] **TEST**: Local STT transcribes accurately (needs testing with real audio)
 - [ ] **TEST**: Transcriptions integrate with NLU
 
-### 4C. Text-to-Speech (COMPLETE)
+### 4C. Text-to-Speech (COMPLETE - Local Qwen3-TTS)
 
 - [x] Design TTS provider interface (IVoiceProvider)
-- [x] Create ElevenLabs provider scaffold (elevenlabs-provider.ts)
-- [x] Implement ElevenLabs API integration
+- [x] Implement Qwen3-TTS integration (Qwen3TtsProvider) - State-of-the-art!
 - [x] Build audio playback system in desktop agent (Hidden renderer + WebAudio)
+- [x] Created Python script for Qwen3-TTS with Coqui TTS fallback
+- [x] Auto-download support for models
+- [ ] **TEST**: Qwen3-TTS synthesizes natural-sounding speech
 - [ ] Create voice profile selection (if user has custom voices)
 - [x] **TEST**: Text synthesizes to audio correctly
 - [x] **TEST**: Playback works smoothly (Architecture implemented)
@@ -227,16 +229,17 @@ This project is **NOT a chatbot wrapper**. It is a **Self-Sufficient Personal As
 ### 4F. Voice Command Flow (COMPLETE)
 
 - [x] Design complete voice interaction flow:
-  1. Wake word detected → notify backend
+  1. Wake word detected ("Computer") → notify backend
   2. Backend → start full audio capture
   3. Desktop agent → capture and stream audio
-  4. Backend → Whisper transcription
+  4. Backend → Local Whisper.cpp STT transcription
   5. Backend → NLU processing (reuses MVP-3)
   6. Backend → Generate response
-  7. Backend → ElevenLabs synthesis
+  7. Backend → Local Qwen3-TTS synthesis (state-of-the-art!)
   8. Backend → Stream TTS audio to desktop
   9. Desktop agent → play audio
 - [x] Implement end-to-end flow with error handling
+- [x] 100% offline voice pipeline (zero API costs!)
 - [ ] Create fallback to SMS if voice fails
 - [ ] **TEST**: Complete flow works end-to-end
 - [ ] **TEST**: Errors handled gracefully
@@ -260,9 +263,9 @@ This project is **NOT a chatbot wrapper**. It is a **Self-Sufficient Personal As
 
 **Goal**: Equip the AI assistant with essential tools for maximum utility
 
-### 5A. Web Search Tool (COMPLETE)
+### 5A. Web Search Tool (COMPLETE - Using Claude)
 
-- [x] Integrate web search API (Exa)
+- [x] Integrate Claude's built-in web search
 - [x] Implement search query optimization (Basic stripping)
 - [x] Build result parsing and summarization (In Tool)
 - [x] Create search result caching to reduce API calls
@@ -299,11 +302,11 @@ This project is **NOT a chatbot wrapper**. It is a **Self-Sufficient Personal As
 - [x] **TEST**: Resource limits prevent runaway processes (Verified timeout)
 - [ ] **TEST**: Dangerous operations require approval
 
-### 5D. Vision Capabilities (COMPLETE)
+### 5D. Vision Capabilities (COMPLETE - Using Claude)
 
 - [x] Implement screen capture in Desktop Agent (Electron `desktopCapturer`)
 - [x] Build backend `VisionTool` to request and process screenshots
-- [x] Integrate OpenAI Vision API (GPT-4o)
+- [x] Integrate Claude's Vision capabilities
 - [x] **INTEGRATION**: Connect to NLU (vision intents → vision tool)
 - [x] **TEST**: End-to-end flow from command to description (Verified with mock)
 - [x] Build OCR capability for text extraction
@@ -560,7 +563,7 @@ This project is **NOT a chatbot wrapper**. It is a **Self-Sufficient Personal As
 **Goal**: Transform into a proactive agent that adapts to the user's schedule and actively engages via voice.
 
 ### 9A. Infrastructure & Settings
-- [~] Update `user_api_keys` constraints for new providers (Twilio, ElevenLabs, Exa)
+- [~] Update `user_api_keys` constraints for new providers (Twilio, ElevenLabs)
 - [~] Update `SettingsService` & API to handle new keys and adaptive preferences
 - [ ] Update Frontend `Settings.tsx` with new key inputs
 
@@ -579,3 +582,4 @@ This project is **NOT a chatbot wrapper**. It is a **Self-Sufficient Personal As
 - [ ] Verify End-to-End
 | 2026-01-20T18:40:00Z | Antigravity         | **MVP-11 COMPLETE**: Optimizations & UI Polish. Merged Smart Router/Memory Gatekeeper into single LLM call (-50% API usage). Added Accent Color customization in Settings. Fixed "New Mission" Reset Logic. Refactored AssistantService for strict types. |
 | 2026-01-20T19:45:00Z | Antigravity         | **BUG FIXES & RESET**: Fixed "one-off message" issue by implementing Redis conversation history and passing it to LLM. Tightened `WORKOUT_LOG` regex to prevent false positives. Created `reset-db.ts` and intercepted full database reset. |
+| 2026-01-24T00:00:00Z | Claude (Sonnet 4.5) | **FULL LOCAL VOICE**: Removed all Exa & OpenAI dependencies. Implemented 100% offline voice: Whisper.cpp (STT) + Qwen3-TTS (TTS - state-of-the-art, brand new!). Updated web search to use Claude's built-in search, vision to use Claude's vision. Added Windows 11 support for desktop agent. Created VOICE_SETUP.md with Python-based TTS setup. Zero ongoing API costs for voice! |

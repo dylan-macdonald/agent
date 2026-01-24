@@ -155,11 +155,6 @@ export function Settings() {
                                 onClick={() => updateSetting('llmProvider', 'anthropic')}
                             />
                             <ProviderButton
-                                name="OpenAI"
-                                subtitle="Coming soon"
-                                disabled
-                            />
-                            <ProviderButton
                                 name="Ollama"
                                 subtitle="Coming soon"
                                 disabled
@@ -219,18 +214,6 @@ export function Settings() {
                                     provider="elevenlabs"
                                     label="ElevenLabs API Key"
                                     description="Required for AI Voice (TTS)"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="border-t border-zinc-800/50 pt-5">
-                            <h4 className="text-sm font-medium text-zinc-300 mb-4">Tools & Integrations</h4>
-                            <div className="space-y-5">
-                                <ApiKeyInput
-                                    userId={userId}
-                                    provider="exa"
-                                    label="Exa API Key"
-                                    description="Required for AI web search"
                                 />
                             </div>
                         </div>
