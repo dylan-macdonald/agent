@@ -580,6 +580,55 @@ This project is **NOT a chatbot wrapper**. It is a **Self-Sufficient Personal As
 ### 9D. Proactivity
 - [ ] Connect `LlmService` to Check-ins (Context-aware briefings)
 - [ ] Verify End-to-End
+
+---
+
+## MVP 10: Self-Modification & Agent Evolution
+
+**Goal**: Allow the agent to propose and execute modifications to its own codebase with user verification via SMS.
+
+### 10A. Self-Modify Tool (COMPLETE)
+
+- [x] Create `SelfModifyTool` class implementing `Tool` interface
+- [x] Implement proposal workflow (stores pending modifications in Redis)
+- [x] SMS verification code generation (6-digit codes, 15min TTL)
+- [x] Execute modifications only after code verification
+- [x] Path validation (allowed/forbidden paths)
+- [x] Audit logging for all self-modification attempts
+- [x] Support for multiple modify types: `replace`, `append`, `prepend`, `create`
+
+### 10B. Intent Detection (COMPLETE)
+
+- [x] Add `SELF_MODIFY` and `SELF_MODIFY_VERIFY` intents
+- [x] Update MessageProcessor with `/modify` command
+- [x] Natural language detection ("update yourself", "modify your code", etc.)
+- [x] Verification code pattern detection
+
+### 10C. Security & Permissions (COMPLETE)
+
+- [x] Tool requires approval by default (ToolService)
+- [x] Forbidden paths: `src/security/`, `.env`, `package.json`, `.git/`, etc.
+- [x] Allowed paths: `src/services/`, `src/types/`, `src/utils/`, etc.
+- [x] Path traversal protection
+- [x] All modifications logged via audit system
+
+### 10D. LLM Tool Suggestions (COMPLETE)
+
+- [x] Update Smart Router to suggest relevant tools for queries
+- [x] Include `suggested_tools` in routing decision
+- [x] Pass tool suggestions in LLM response metadata
+
+### 10E. Future Enhancements (NOT STARTED)
+
+- [ ] Add rollback capability for self-modifications
+- [ ] Implement diff preview before approval
+- [ ] Add modification history viewer in dashboard
+- [ ] Enable batch modifications with single approval
+- [ ] Add test execution requirement before modification approval
+
+---
+
 | 2026-01-20T18:40:00Z | Antigravity         | **MVP-11 COMPLETE**: Optimizations & UI Polish. Merged Smart Router/Memory Gatekeeper into single LLM call (-50% API usage). Added Accent Color customization in Settings. Fixed "New Mission" Reset Logic. Refactored AssistantService for strict types. |
 | 2026-01-20T19:45:00Z | Antigravity         | **BUG FIXES & RESET**: Fixed "one-off message" issue by implementing Redis conversation history and passing it to LLM. Tightened `WORKOUT_LOG` regex to prevent false positives. Created `reset-db.ts` and intercepted full database reset. |
 | 2026-01-24T00:00:00Z | Claude (Sonnet 4.5) | **FULL LOCAL VOICE**: Removed all Exa & OpenAI dependencies. Implemented 100% offline voice: Whisper.cpp (STT) + Qwen3-TTS (TTS - state-of-the-art, brand new!). Updated web search to use Claude's built-in search, vision to use Claude's vision. Added Windows 11 support for desktop agent. Created VOICE_SETUP.md with Python-based TTS setup. Zero ongoing API costs for voice! |
+| 2026-01-27T00:00:00Z | Claude (Opus 4.5) | **MVP-10 COMPLETE**: Implemented Self-Modification capabilities with SMS verification. Created `SelfModifyTool` with proposal/verify workflow, 6-digit codes, path validation, and audit logging. Added `SELF_MODIFY` and `SELF_MODIFY_VERIFY` intents to MessageProcessor. Updated Smart Router to suggest tools for queries. All self-modifications require explicit user approval via SMS code. |

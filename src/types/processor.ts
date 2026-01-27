@@ -23,6 +23,8 @@ export enum Intent {
   SEARCH = "search",
   CONFIRM = "confirm",
   DENY = "deny",
+  SELF_MODIFY = "self_modify",
+  SELF_MODIFY_VERIFY = "self_modify_verify",
   UNKNOWN = "unknown",
 }
 

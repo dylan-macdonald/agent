@@ -437,6 +437,56 @@ export class AssistantService {
         return { content: "I can help with calendar events. When would you like to schedule the event?" };
       }
 
+      case Intent.SELF_MODIFY: {
+        // Self-modification requests need to be parsed for the action and content
+        // The user or agent is proposing to modify the agent's own code
+        const actionMatch = text.match(/(?:propose|create|add|update|modify|change)\s+(.+)/i);
+        const description = actionMatch?.[1] || text;
+
+        // For now, we'll pass this to the LLM to help structure the modification
+        // The tool will handle the actual proposal and SMS verification
+        return {
+          content: `**Self-Modification Request Received**
+
+I can modify my own code, but this requires SMS verification for security.
+
+To proceed, I need:
+1. **File path** to modify (e.g., \`src/services/assistant.ts\`)
+2. **Type of change**: \`replace\`, \`append\`, \`prepend\`, or \`create\`
+3. **Description** of what you want to change
+4. **The actual code changes**
+
+Once you provide these details, I'll create a proposal and send you a verification code via SMS. You'll need to confirm with that code before any changes are made.
+
+Your request: "${description}"
+
+Would you like to proceed? Please provide the specific details or say "cancel" to abort.`
+        };
+      }
+
+      case Intent.SELF_MODIFY_VERIFY: {
+        // User is providing a verification code for a pending modification
+        const codeEntity = result.entities.find(e => e.type === "code");
+        const code = codeEntity?.value || text.match(/\b(\d{6})\b/)?.[1];
+
+        if (!code) {
+          return { content: "I couldn't find a 6-digit verification code in your message. Please provide the code you received via SMS." };
+        }
+
+        try {
+          const toolResult = await this.toolService.executeTool(
+            "self_modify",
+            { action: "verify", verificationCode: code },
+            { userId, approved: true, isSystem: true }
+          );
+
+          return { content: toolResult };
+        } catch (error) {
+          logger.error("Self-modify verification failed", { error });
+          return { content: `Verification failed: ${(error as Error).message}` };
+        }
+      }
+
       default: {
         const settings = await this.settingsService.getSettings(userId);
         const provider = settings.llmProvider;

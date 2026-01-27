@@ -9,13 +9,15 @@ export interface LlmResponse {
     metadata?: {
         complexity?: string | undefined;
         memoryPotential?: boolean | undefined;
-        // New: Desire/Interest detection for autonomous agent
+        // Desire/Interest detection for autonomous agent
         containsDesire?: boolean | undefined;
         containsInterest?: boolean | undefined;
         containsGoal?: boolean | undefined;
         extractedDesire?: string | undefined;
         extractedInterest?: string | undefined;
         extractedGoal?: string | undefined;
+        // Suggested tools for the responding model
+        suggestedTools?: string[] | undefined;
     };
 }
 
@@ -23,13 +25,15 @@ interface RouteDecision {
     complexity: 'SIMPLE' | 'MEDIUM' | 'HARD';
     memory_potential: boolean;
     model_suggestion?: string;
-    // New: Desire/Interest detection
+    // Desire/Interest detection
     contains_desire?: boolean;
     contains_interest?: boolean;
     contains_goal?: boolean;
     extracted_desire?: string;
     extracted_interest?: string;
     extracted_goal?: string;
+    // Tool suggestions for the responding model
+    suggested_tools?: string[];
 }
 
 export class LlmService {
@@ -50,7 +54,7 @@ export class LlmService {
     }
 
     /**
-     * Smart Route: Uses Haiku to decide complexity AND memory importance
+     * Smart Route: Uses Haiku to decide complexity, memory importance, AND tool suggestions
      * Returns a JSON decision object
      */
     private async smartRoute(prompt: string, apiKey: string): Promise<RouteDecision> {
@@ -58,19 +62,28 @@ export class LlmService {
             const anthropic = new Anthropic({ apiKey });
             const response = await anthropic.messages.create({
                 model: 'claude-haiku-4-5-20251001',
-                max_tokens: 400,
+                max_tokens: 500,
                 messages: [
                     {
                         role: 'user',
-                        content: `Analyze this user message for routing AND intent extraction.
+                        content: `Analyze this user message for routing, intent extraction, AND tool suggestions.
 
 1. COMPLEXITY: "SIMPLE" | "MEDIUM" | "HARD"
 2. MEMORY_POTENTIAL: true if contains personal info, preferences, important decisions
-3. CONTAINS_DESIRE: true if user expresses wanting to do something (e.g., "I want to learn guitar", "I wish I could travel more", "Someday I'd like to...")
-4. CONTAINS_INTEREST: true if user expresses interest/enjoyment (e.g., "I love cooking", "I'm interested in AI", "I enjoy hiking")
-5. CONTAINS_GOAL: true if user expresses a goal/intention (e.g., "I'm trying to lose weight", "My goal is to read more", "I need to finish my project")
+3. CONTAINS_DESIRE: true if user expresses wanting to do something
+4. CONTAINS_INTEREST: true if user expresses interest/enjoyment
+5. CONTAINS_GOAL: true if user expresses a goal/intention
+6. SUGGESTED_TOOLS: Array of tools that would help answer this query
 
-If any of 3-5 are true, extract the specific desire/interest/goal as a short phrase.
+AVAILABLE TOOLS:
+- "web_search": For current events, real-time info, facts that may have changed
+- "calculator": For math, unit conversions, date calculations
+- "script_execution": For data transformation, code execution, complex logic
+- "vision_query": For analyzing images, screenshots, visual content
+- "calendar": For scheduling, events, availability checking
+- "goals": For goal tracking, progress updates
+- "health": For health logging (sleep, workouts, etc.)
+- "self_modify": For agent self-improvement requests
 
 Respond in JSON:
 {
@@ -81,7 +94,8 @@ Respond in JSON:
   "contains_goal": boolean,
   "extracted_desire": "string or null",
   "extracted_interest": "string or null",
-  "extracted_goal": "string or null"
+  "extracted_goal": "string or null",
+  "suggested_tools": ["tool1", "tool2"] or []
 }
 
 Message: "${prompt.substring(0, 1500)}"`
@@ -95,7 +109,8 @@ Message: "${prompt.substring(0, 1500)}"`
                 memory_potential: false,
                 contains_desire: false,
                 contains_interest: false,
-                contains_goal: false
+                contains_goal: false,
+                suggested_tools: []
             };
 
             if (response.content?.[0]?.type === 'text') {
@@ -113,7 +128,8 @@ Message: "${prompt.substring(0, 1500)}"`
                             contains_goal: parsed.contains_goal || false,
                             extracted_desire: parsed.extracted_desire || undefined,
                             extracted_interest: parsed.extracted_interest || undefined,
-                            extracted_goal: parsed.extracted_goal || undefined
+                            extracted_goal: parsed.extracted_goal || undefined,
+                            suggested_tools: Array.isArray(parsed.suggested_tools) ? parsed.suggested_tools : []
                         };
                     } else {
                         // Fallback parsing
@@ -135,12 +151,17 @@ Message: "${prompt.substring(0, 1500)}"`
                 });
             }
 
+            // Log tool suggestions
+            if (decision.suggested_tools && decision.suggested_tools.length > 0) {
+                logger.info(`[Smart Router] Suggested tools: ${decision.suggested_tools.join(', ')}`);
+            }
+
             logger.info(`[Smart Router] Decision:`, decision as unknown as Record<string, unknown>);
             return decision;
 
         } catch (error) {
             logger.warn("Smart reasoning failed, failing back to default", { error });
-            return { complexity: 'SIMPLE', memory_potential: false };
+            return { complexity: 'SIMPLE', memory_potential: false, suggested_tools: [] };
         }
     }
 
@@ -218,7 +239,9 @@ Message: "${prompt.substring(0, 1500)}"`
                     containsGoal: routeDecision?.contains_goal ?? undefined,
                     extractedDesire: routeDecision?.extracted_desire ?? undefined,
                     extractedInterest: routeDecision?.extracted_interest ?? undefined,
-                    extractedGoal: routeDecision?.extracted_goal ?? undefined
+                    extractedGoal: routeDecision?.extracted_goal ?? undefined,
+                    // Tool suggestions from the smart router
+                    suggestedTools: routeDecision?.suggested_tools ?? undefined
                 }
             };
 
@@ -348,7 +371,6 @@ IMPORTANT: This is a PROACTIVE message - you're initiating contact, not respondi
                 return "Hello! Just checking in.";
         }
     }
-}
 
     /**
      * Break down a goal into actionable milestones/sub-tasks

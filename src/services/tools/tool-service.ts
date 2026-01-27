@@ -10,12 +10,13 @@ export class ToolService {
     private tools: Map<string, Tool> = new Map();
     private redis: Redis;
 
-    // Default permissions: Scripts require approval, others enabled
+    // Default permissions: Scripts and self-modify require approval, others enabled
     private defaultPermissions: PrivacySettings = {
         "script_execution": { enabled: true, requiresApproval: true },
         "vision_query": { enabled: true, requiresApproval: false },
         "web_search": { enabled: true, requiresApproval: false },
         "calculator": { enabled: true, requiresApproval: false },
+        "self_modify": { enabled: true, requiresApproval: true },
     };
 
     // Tool specific rate limits

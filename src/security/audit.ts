@@ -42,6 +42,11 @@ export enum AuditEventType {
   // Remote access events
   REMOTE_CONNECTION = "remote.connection",
   REMOTE_COMMAND = "remote.command",
+
+  // Sensitive operations
+  SENSITIVE_ACCESS = "security.sensitive_access",
+  SELF_MODIFY_PROPOSE = "security.self_modify.propose",
+  SELF_MODIFY_EXECUTE = "security.self_modify.execute",
 }
 
 /**

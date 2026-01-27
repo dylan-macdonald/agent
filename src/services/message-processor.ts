@@ -79,6 +79,20 @@ export class MessageProcessor {
         usage: "/run [script]",
         aliases: ["script", "eval"],
       },
+      {
+        name: "modify",
+        intent: Intent.SELF_MODIFY,
+        description: "Propose a self-modification (requires SMS verification)",
+        usage: "/modify [action] [args...]",
+        aliases: ["selfmod", "self-modify", "upgrade"],
+      },
+      {
+        name: "verify-mod",
+        intent: Intent.SELF_MODIFY_VERIFY,
+        description: "Verify a pending self-modification with code",
+        usage: "/verify-mod [code]",
+        aliases: ["approve-mod", "confirm-mod"],
+      },
     ];
 
     for (const cmd of defaultCommands) {
@@ -270,6 +284,54 @@ export class MessageProcessor {
         text,
         intent: Intent.CALENDAR_EVENT,
         entities: this.extractBasicEntities(text),
+        confidence: 0.85,
+        isCommand: false,
+      };
+    }
+
+    // Self-modify: "update yourself", "modify your code", "improve yourself"
+    else if (
+      lowerText.includes("update yourself") ||
+      lowerText.includes("modify your code") ||
+      lowerText.includes("modify yourself") ||
+      lowerText.includes("improve yourself") ||
+      lowerText.includes("upgrade yourself") ||
+      lowerText.includes("change your code") ||
+      lowerText.includes("self-modify") ||
+      lowerText.includes("selfmod")
+    ) {
+      return {
+        text,
+        intent: Intent.SELF_MODIFY,
+        entities: this.extractBasicEntities(text),
+        confidence: 0.9,
+        isCommand: false,
+      };
+    }
+
+    // Self-modify verification: 6-digit code pattern in context of approval
+    else if (
+      /\b\d{6}\b/.test(text) &&
+      (lowerText.includes("verify") ||
+        lowerText.includes("approve") ||
+        lowerText.includes("confirm") ||
+        lowerText.includes("code"))
+    ) {
+      const codeMatch = text.match(/\b(\d{6})\b/);
+      return {
+        text,
+        intent: Intent.SELF_MODIFY_VERIFY,
+        entities: codeMatch
+          ? [
+              {
+                type: EntityType.CODE,
+                value: codeMatch[1],
+                original: codeMatch[0],
+                startIndex: codeMatch.index || 0,
+                endIndex: (codeMatch.index || 0) + codeMatch[0].length,
+              },
+            ]
+          : [],
         confidence: 0.85,
         isCommand: false,
       };
