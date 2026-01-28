@@ -1,15 +1,19 @@
 // Service Worker for Agent Dashboard PWA
-const CACHE_NAME = 'agent-dashboard-v1';
+const CACHE_NAME = 'agent-dashboard-v2';
+const API_CACHE_NAME = 'agent-api-v1';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
-  '/manifest.json'
+  '/manifest.json',
+  '/icons/icon-192.svg',
+  '/icons/icon-512.svg'
 ];
 
 // Install event - cache static assets
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
+      console.log('[SW] Caching static assets');
       return cache.addAll(STATIC_ASSETS);
     })
   );
@@ -22,51 +26,86 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames
-          .filter((name) => name !== CACHE_NAME)
-          .map((name) => caches.delete(name))
+          .filter((name) => name !== CACHE_NAME && name !== API_CACHE_NAME)
+          .map((name) => {
+            console.log('[SW] Deleting old cache:', name);
+            return caches.delete(name);
+          })
       );
     })
   );
   self.clients.claim();
 });
 
-// Fetch event - network first, fallback to cache
+// Fetch event - smart caching strategy
 self.addEventListener('fetch', (event) => {
   // Skip non-GET requests
   if (event.request.method !== 'GET') return;
 
-  // Skip API requests and WebSocket connections
   const url = new URL(event.request.url);
-  if (url.pathname.startsWith('/api') ||
-      url.pathname.startsWith('/socket.io')) {
+
+  // Skip WebSocket connections
+  if (url.pathname.startsWith('/socket.io')) return;
+
+  // API requests - network first with cache fallback for offline viewing
+  if (url.pathname.startsWith('/api')) {
+    // Skip health checks and real-time endpoints
+    if (url.pathname.includes('/health') || url.pathname.includes('/stream')) return;
+
+    event.respondWith(networkFirstWithCache(event.request));
     return;
   }
 
-  event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        // Clone the response before caching
-        const responseClone = response.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseClone);
-        });
-        return response;
-      })
-      .catch(() => {
-        // Fallback to cache
-        return caches.match(event.request).then((cachedResponse) => {
-          if (cachedResponse) {
-            return cachedResponse;
-          }
-          // For navigation requests, return the cached index.html
-          if (event.request.mode === 'navigate') {
-            return caches.match('/index.html');
-          }
-          return new Response('Offline', { status: 503 });
-        });
-      })
-  );
+  // Static assets - cache first
+  event.respondWith(cacheFirstWithNetwork(event.request));
 });
+
+// Network first, cache fallback (for API)
+async function networkFirstWithCache(request) {
+  try {
+    const response = await fetch(request);
+    if (response.ok) {
+      const cache = await caches.open(API_CACHE_NAME);
+      cache.put(request, response.clone());
+    }
+    return response;
+  } catch (error) {
+    const cached = await caches.match(request);
+    if (cached) {
+      console.log('[SW] Serving cached API:', request.url);
+      return cached;
+    }
+    return new Response(JSON.stringify({
+      error: 'Offline',
+      message: 'This data is not available offline'
+    }), {
+      status: 503,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+// Cache first, network fallback (for static)
+async function cacheFirstWithNetwork(request) {
+  const cached = await caches.match(request);
+  if (cached) return cached;
+
+  try {
+    const response = await fetch(request);
+    if (response.ok) {
+      const cache = await caches.open(CACHE_NAME);
+      cache.put(request, response.clone());
+    }
+    return response;
+  } catch (error) {
+    // For navigation, return cached index.html (SPA fallback)
+    if (request.mode === 'navigate') {
+      const index = await caches.match('/index.html');
+      if (index) return index;
+    }
+    return new Response('Offline', { status: 503 });
+  }
+}
 
 // Handle push notifications (future use)
 self.addEventListener('push', (event) => {

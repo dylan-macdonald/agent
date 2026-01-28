@@ -16,6 +16,7 @@ import {
     X
 } from 'lucide-react';
 import { api } from '../lib/api';
+import { GlobalSearch } from '../components/GlobalSearch';
 
 function cn(...classes: (string | undefined | null | false)[]): string {
     return classes.filter(Boolean).join(' ');
@@ -95,11 +96,20 @@ export function DashboardLayout() {
 
     return (
         <div className="flex h-screen bg-[var(--color-bg-primary)] text-white overflow-hidden">
+            {/* Skip Navigation Link (Accessibility) */}
+            <a
+                href="#main-content"
+                className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-cyan-500 focus:text-white focus:rounded-lg focus:outline-none"
+            >
+                Skip to main content
+            </a>
+
             {/* Mobile Menu Overlay */}
             {mobileMenuOpen && (
                 <div
                     className="fixed inset-0 bg-black/60 z-40 lg:hidden"
                     onClick={() => setMobileMenuOpen(false)}
+                    aria-hidden="true"
                 />
             )}
 
@@ -143,7 +153,7 @@ export function DashboardLayout() {
                 </div>
 
                 {/* Navigation */}
-                <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
+                <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-1" aria-label="Main navigation">
                     <NavItem
                         icon={<Home size={18} />}
                         label="Overview"
@@ -237,18 +247,24 @@ export function DashboardLayout() {
                     </div>
 
                     <div className="flex items-center gap-3">
+                        {/* Global Search */}
+                        {userId && <GlobalSearch userId={userId} />}
+
                         <div className={cn(
                             "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium",
                             systemStatus === 'online' && "bg-emerald-500/10 text-emerald-400",
                             systemStatus === 'offline' && "bg-red-500/10 text-red-400",
                             systemStatus === 'checking' && "bg-amber-500/10 text-amber-400"
-                        )}>
+                        )}
+                        role="status"
+                        aria-live="polite"
+                        >
                             <div className={cn(
                                 "w-1.5 h-1.5 rounded-full",
                                 systemStatus === 'online' && "bg-emerald-400 animate-pulse",
                                 systemStatus === 'offline' && "bg-red-400",
                                 systemStatus === 'checking' && "bg-amber-400 animate-pulse"
-                            )} />
+                            )} aria-hidden="true" />
                             <span className="hidden sm:inline">
                                 {systemStatus === 'online' ? 'Connected' : systemStatus === 'offline' ? 'Offline' : 'Connecting...'}
                             </span>
@@ -257,12 +273,17 @@ export function DashboardLayout() {
                 </header>
 
                 {/* Page Content */}
-                <div className="flex-1 overflow-auto p-4 lg:p-6 pb-20 lg:pb-6 bg-gradient-to-b from-[var(--color-bg-primary)] to-[var(--color-bg-secondary)] scroll-touch">
+                <div
+                    id="main-content"
+                    className="flex-1 overflow-auto p-4 lg:p-6 pb-20 lg:pb-6 bg-gradient-to-b from-[var(--color-bg-primary)] to-[var(--color-bg-secondary)] scroll-touch"
+                    role="main"
+                    tabIndex={-1}
+                >
                     <Outlet />
                 </div>
 
                 {/* Mobile Bottom Navigation */}
-                <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-[var(--color-bg-secondary)]/95 backdrop-blur-lg border-t border-zinc-800/50 safe-bottom z-30">
+                <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-[var(--color-bg-secondary)]/95 backdrop-blur-lg border-t border-zinc-800/50 safe-bottom z-30" aria-label="Mobile navigation">
                     <div className="flex items-center justify-around px-2 py-2">
                         <MobileNavItem
                             icon={<Home size={20} />}
