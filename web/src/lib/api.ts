@@ -293,4 +293,26 @@ export const api = {
     async dismissInsight(userId: string, insightId: string): Promise<ApiResponse<{ success: boolean }>> {
         return fetchApi(`/api/insights/${userId}/dismiss/${insightId}`, { method: 'POST' });
     },
+
+    // Search
+    async search(userId: string, query: string): Promise<ApiResponse<SearchResults>> {
+        return fetchApi(`/api/dashboard/${userId}/search?q=${encodeURIComponent(query)}`);
+    },
 };
+
+// Search types
+export interface SearchResult {
+    type: 'event' | 'goal' | 'reminder';
+    id: string;
+    title: string;
+    description?: string;
+    date?: string;
+    status?: string;
+    relevance: number;
+}
+
+export interface SearchResults {
+    results: SearchResult[];
+    query: string;
+    totalCount: number;
+}

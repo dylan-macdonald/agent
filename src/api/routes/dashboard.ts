@@ -412,5 +412,107 @@ export function createDashboardRouter(
         }
     });
 
+    // ============ Search Endpoint ============
+
+    /**
+     * GET /api/dashboard/:userId/search
+     * Search across all user data (events, goals, reminders)
+     */
+    router.get('/:userId/search', async (req: Request, res: Response) => {
+        try {
+            const userId = req.params.userId as string;
+            const query = (req.query.q as string || '').toLowerCase().trim();
+
+            if (!query || query.length < 2) {
+                res.json({ results: [], query });
+                return;
+            }
+
+            // Search in parallel across all data sources
+            const [events, goals, reminders] = await Promise.all([
+                calendarService.getEvents(userId, {
+                    startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // Past 30 days
+                    endDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)    // Next 90 days
+                }),
+                goalService.getGoals(userId),
+                reminderService.getUserReminders(userId)
+            ]);
+
+            // Filter and format results
+            const results: Array<{
+                type: 'event' | 'goal' | 'reminder';
+                id: string;
+                title: string;
+                description?: string;
+                date?: string;
+                status?: string;
+                relevance: number;
+            }> = [];
+
+            // Search events
+            for (const event of events) {
+                const titleMatch = event.title.toLowerCase().includes(query);
+                const descMatch = event.description?.toLowerCase().includes(query);
+                const locationMatch = event.location?.toLowerCase().includes(query);
+
+                if (titleMatch || descMatch || locationMatch) {
+                    results.push({
+                        type: 'event',
+                        id: event.id,
+                        title: event.title,
+                        description: event.description,
+                        date: event.startTime.toISOString(),
+                        relevance: titleMatch ? 3 : (descMatch ? 2 : 1)
+                    });
+                }
+            }
+
+            // Search goals
+            for (const goal of goals) {
+                const titleMatch = goal.title.toLowerCase().includes(query);
+                const descMatch = goal.description?.toLowerCase().includes(query);
+
+                if (titleMatch || descMatch) {
+                    results.push({
+                        type: 'goal',
+                        id: goal.id,
+                        title: goal.title,
+                        description: goal.description,
+                        status: goal.status,
+                        relevance: titleMatch ? 3 : 2
+                    });
+                }
+            }
+
+            // Search reminders
+            for (const reminder of reminders) {
+                const titleMatch = reminder.title.toLowerCase().includes(query);
+
+                if (titleMatch) {
+                    results.push({
+                        type: 'reminder',
+                        id: reminder.id,
+                        title: reminder.title,
+                        date: reminder.dueAt.toISOString(),
+                        status: reminder.status,
+                        relevance: 3
+                    });
+                }
+            }
+
+            // Sort by relevance (highest first)
+            results.sort((a, b) => b.relevance - a.relevance);
+
+            res.json({
+                results: results.slice(0, 20), // Limit to 20 results
+                query,
+                totalCount: results.length
+            });
+        } catch (error) {
+            logger.error('Failed to search', { error });
+            res.status(500).json({ error: 'Failed to search' });
+        }
+    });
+
     return router;
 }
