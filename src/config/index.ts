@@ -54,7 +54,7 @@ export function loadConfig(): AppConfig {
     database: {
       url: getEnvVar(
         "DATABASE_URL",
-        "postgresql://postgres:password@localhost:5432/ai_assistant"
+        "postgresql://postgres@localhost:5432/ai_assistant"
       ),
       maxConnections: getEnvVarAsNumber("DB_MAX_CONNECTIONS", 10),
       ssl: getEnvVarAsBoolean("DB_SSL", environment === "production"),

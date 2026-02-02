@@ -16,7 +16,7 @@ let socket: Socket | null = null;
 let audioManager: AudioManager | null = null;
 
 // Configuration
-const BACKEND_URL = process.env.ASSISTANT_BACKEND_URL || "http://localhost:3001";
+const BACKEND_URL = process.env.ASSISTANT_BACKEND_URL || "http://localhost:3000";
 const USER_ID = process.env.ASSISTANT_USER_ID || "default-user";
 const DEVICE_ID = "desktop-agent-1";
 const PICOVOICE_KEY = process.env.PICOVOICE_ACCESS_KEY || "";

@@ -47,37 +47,51 @@ Your AI Personal Assistant is a **proactive digital companion** that:
 
 ## 🔧 Installation - Step by Step
 
-### Part 1: Linux Backend
+### Part 1: Linux Backend (or WSL2 on Windows)
 
-**Install on your Linux server (or WSL2 on Windows):**
+**Option A: Docker for databases (recommended)**
 
 ```bash
 # 1. Clone the repo
 git clone <your-repo>
 cd agent
 
-# 2. Run quick setup
+# 2. Start Postgres + Redis via Docker
+docker compose up -d
+
+# 3. Run quick setup
 ./setup.sh quick
 # This will:
 # - Check prerequisites
 # - Install dependencies (backend + web dashboard)
-# - Setup PostgreSQL database
-# - Create .env file
+# - Create .env file (Docker DB URL pre-filled)
 # - Run migrations
 # - Build everything
 
-# 3. Add your API key to .env
+# 4. Add your API key to .env
 nano .env
 # Set: ANTHROPIC_API_KEY=sk-ant-...
 
-# 4. Start the backend
+# 5. Start the backend
 npm run dev
 # Runs on http://localhost:3000
 
-# 5. Start the web dashboard (new terminal)
+# 6. Start the web dashboard (new terminal)
 cd web
 npm run dev
 # Runs on http://localhost:5173
+```
+
+**Option B: Native Postgres + Redis (no Docker)**
+
+```bash
+# Ubuntu/Debian
+sudo apt install -y postgresql redis-server
+sudo service postgresql start
+sudo service redis-server start
+sudo -u postgres createdb ai_assistant
+
+# Then follow steps 1, 3-6 from Option A above
 ```
 
 ### Part 2: Windows 11 Desktop Agent
@@ -110,7 +124,7 @@ choco install python -y
 # Copy your access key
 
 # 6. Update .env (or create .env.local in desktop-agent/)
-PORCUPINE_ACCESS_KEY=your-key-here
+PICOVOICE_ACCESS_KEY=your-key-here
 WHISPER_MODEL_PATH=./models/whisper/ggml-base.en.bin
 PYTHON_PATH=python
 VOICE_ENABLED=true
@@ -221,7 +235,7 @@ FEATURE_SMS_ENABLED=true
 ```env
 WHISPER_MODEL_PATH=./models/whisper/ggml-base.en.bin
 PYTHON_PATH=python3
-PORCUPINE_ACCESS_KEY=...
+PICOVOICE_ACCESS_KEY=...
 VOICE_ENABLED=true
 ```
 **Cost:** $0/month (fully offline!)
@@ -312,7 +326,7 @@ VOICE_ENABLED=true
 ### "Desktop agent won't start"
 **Check:**
 1. Backend is running (`npm run dev`)
-2. PORCUPINE_ACCESS_KEY in `.env`
+2. PICOVOICE_ACCESS_KEY in `.env`
 3. `cd desktop-agent && npm install`
 4. Check console for errors
 

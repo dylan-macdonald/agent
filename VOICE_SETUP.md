@@ -151,7 +151,7 @@ PYTHON_PATH=python3
 # QWEN3_MODEL_PATH=./models/qwen3-tts
 
 # Wake Word Detection
-PORCUPINE_ACCESS_KEY=your-key-from-picovoice.ai
+PICOVOICE_ACCESS_KEY=your-key-from-picovoice.ai
 
 # Enable Voice
 VOICE_ENABLED=true
@@ -162,7 +162,7 @@ VOICE_ENABLED=true
 1. Go to: https://console.picovoice.ai/signup
 2. Sign up (free for personal use)
 3. Copy your Access Key from the dashboard
-4. Paste it into `.env` as `PORCUPINE_ACCESS_KEY`
+4. Paste it into `.env` as `PICOVOICE_ACCESS_KEY`
 
 ### 6. Test Voice Setup
 

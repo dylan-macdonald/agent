@@ -174,16 +174,12 @@ function New-Secret {
 
 $envContent = Get-Content ".env" -Raw
 
-# Generate and replace secrets
+# Generate and replace secrets (only for env vars actually read by the code)
 $jwtSecret = New-Secret
-$refreshSecret = New-Secret
 $encryptionKey = New-Secret
-$remoteSecret = New-Secret
 
 $envContent = $envContent -replace 'JWT_SECRET=.*', "JWT_SECRET=$jwtSecret"
-$envContent = $envContent -replace 'REFRESH_TOKEN_SECRET=.*', "REFRESH_TOKEN_SECRET=$refreshSecret"
 $envContent = $envContent -replace 'ENCRYPTION_KEY=.*', "ENCRYPTION_KEY=$encryptionKey"
-$envContent = $envContent -replace 'REMOTE_AGENT_SECRET=.*', "REMOTE_AGENT_SECRET=$remoteSecret"
 
 # Set Docker-appropriate database URL
 if (-not $SkipDocker) {

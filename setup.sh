@@ -149,26 +149,20 @@ setup_environment() {
     echo -e "${BOLD}Let's configure your environment:${NC}"
     echo ""
 
-    # Generate secrets
+    # Generate secrets (only for env vars actually read by the code)
     print_info "Generating secure secrets..."
     local jwt_secret=$(generate_secret)
-    local refresh_secret=$(generate_secret)
     local encryption_key=$(generate_secret | cut -c1-64)
-    local remote_secret=$(generate_secret)
 
     # Update .env with generated secrets
     if [[ "$OSTYPE" == "darwin"* ]]; then
         # macOS
         sed -i '' "s/JWT_SECRET=.*/JWT_SECRET=$jwt_secret/" .env
-        sed -i '' "s/REFRESH_TOKEN_SECRET=.*/REFRESH_TOKEN_SECRET=$refresh_secret/" .env
         sed -i '' "s/ENCRYPTION_KEY=.*/ENCRYPTION_KEY=$encryption_key/" .env
-        sed -i '' "s/REMOTE_AGENT_SECRET=.*/REMOTE_AGENT_SECRET=$remote_secret/" .env
     else
         # Linux
         sed -i "s/JWT_SECRET=.*/JWT_SECRET=$jwt_secret/" .env
-        sed -i "s/REFRESH_TOKEN_SECRET=.*/REFRESH_TOKEN_SECRET=$refresh_secret/" .env
         sed -i "s/ENCRYPTION_KEY=.*/ENCRYPTION_KEY=$encryption_key/" .env
-        sed -i "s/REMOTE_AGENT_SECRET=.*/REMOTE_AGENT_SECRET=$remote_secret/" .env
     fi
 
     print_success "Security secrets generated"
@@ -627,7 +621,7 @@ quick_setup() {
 }
 
 # ============================================================================
-# VOICE SETUP (100% Local - Whisper + Piper)
+# VOICE SETUP (100% Local - Whisper + Qwen3-TTS)
 # ============================================================================
 
 check_voice_binaries() {
@@ -644,12 +638,13 @@ check_voice_binaries() {
         all_good=false
     fi
 
-    # Check for Piper TTS
-    if check_command piper; then
-        print_success "Piper TTS binary found"
+    # Check for Python (required for Qwen3-TTS)
+    if check_command python3 || check_command python; then
+        local py_version=$(python3 --version 2>/dev/null || python --version 2>/dev/null)
+        print_success "Python found ($py_version)"
     else
-        print_warning "Piper TTS not found"
-        print_info "Download from: https://github.com/rhasspy/piper/releases"
+        print_warning "Python 3.10+ not found (required for Qwen3-TTS)"
+        print_info "Install from: https://www.python.org/downloads/"
         all_good=false
     fi
 
@@ -667,7 +662,7 @@ check_voice_binaries() {
     fi
 
     if [ "$all_good" = true ]; then
-        print_success "All voice binaries are installed!"
+        print_success "All voice dependencies are installed!"
     else
         echo ""
         print_info "See VOICE_SETUP.md for detailed installation instructions"
@@ -748,82 +743,56 @@ download_whisper_model() {
     press_enter
 }
 
-download_piper_voice() {
-    print_header "Download Piper TTS Voice"
+setup_qwen3_tts() {
+    print_header "Setup Qwen3-TTS (Text-to-Speech)"
 
-    mkdir -p models/piper
-
-    echo "Choose a Piper voice:"
-    echo "  1) en_US-lessac-medium  (63 MB)  - Natural US English (recommended)"
-    echo "  2) en_US-amy-low        (10 MB)  - Fast, lower quality"
-    echo "  3) en_US-libritts-high  (100 MB) - Highest quality"
-    echo ""
-    read -p "Enter choice [1-3]: " voice_choice
-
-    case $voice_choice in
-        1)
-            VOICE="en_US/lessac/medium/en_US-lessac-medium"
-            SIZE="63MB"
-            ;;
-        2)
-            VOICE="en_US/amy/low/en_US-amy-low"
-            SIZE="10MB"
-            ;;
-        3)
-            VOICE="en_US/libritts/high/en_US-libritts-high"
-            SIZE="100MB"
-            ;;
-        *)
-            print_error "Invalid choice"
-            return
-            ;;
-    esac
-
-    VOICE_NAME=$(basename "$VOICE")
-    MODEL_FILE="${VOICE_NAME}.onnx"
-    CONFIG_FILE="${VOICE_NAME}.onnx.json"
-    MODEL_PATH="models/piper/${MODEL_FILE}"
-    CONFIG_PATH="models/piper/${CONFIG_FILE}"
-
-    if [ -f "$MODEL_PATH" ]; then
-        print_warning "Voice already exists at $MODEL_PATH"
-        read -p "Re-download? (y/N): " redownload
-        if [[ ! "$redownload" =~ ^[Yy]$ ]]; then
-            return
-        fi
-    fi
-
-    print_info "Downloading ${VOICE_NAME} ($SIZE)..."
-
-    # Download model
-    curl -L "https://huggingface.co/rhasspy/piper-voices/resolve/main/${VOICE}.onnx" \
-        -o "$MODEL_PATH" --progress-bar
-
-    if [ $? -ne 0 ]; then
-        print_error "Model download failed"
+    # Check Python
+    local python_cmd=""
+    if check_command python3; then
+        python_cmd="python3"
+    elif check_command python; then
+        python_cmd="python"
+    else
+        print_error "Python 3.10+ is required for Qwen3-TTS"
+        print_info "Install from: https://www.python.org/downloads/"
+        press_enter
         return
     fi
 
-    # Download config
-    curl -L "https://huggingface.co/rhasspy/piper-voices/resolve/main/${VOICE}.onnx.json" \
-        -o "$CONFIG_PATH" --progress-bar
+    local py_version=$($python_cmd --version 2>&1 | grep -oP '\d+\.\d+')
+    print_info "Using $python_cmd (version $py_version)"
 
-    if [ $? -eq 0 ]; then
-        print_success "Downloaded to $MODEL_PATH"
-
-        # Update .env if it exists
-        if [ -f .env ]; then
-            if grep -q "PIPER_MODEL_PATH=" .env; then
-                if [[ "$OSTYPE" == "darwin"* ]]; then
-                    sed -i '' "s|PIPER_MODEL_PATH=.*|PIPER_MODEL_PATH=./${MODEL_PATH}|" .env
-                else
-                    sed -i "s|PIPER_MODEL_PATH=.*|PIPER_MODEL_PATH=./${MODEL_PATH}|" .env
-                fi
-                print_success "Updated .env with voice path"
-            fi
+    echo ""
+    echo "Qwen3-TTS requires the following Python packages:"
+    echo "  - torch"
+    echo "  - torchaudio"
+    echo "  - transformers"
+    echo "  - TTS (Coqui fallback)"
+    echo ""
+    read -p "Install Python TTS packages now? (Y/n): " install_tts
+    if [[ ! "$install_tts" =~ ^[Nn]$ ]]; then
+        print_info "Installing Python TTS packages..."
+        $python_cmd -m pip install torch torchaudio transformers TTS
+        if [ $? -eq 0 ]; then
+            print_success "Python TTS packages installed"
+        else
+            print_warning "Some packages may have failed. Check output above."
         fi
-    else
-        print_error "Config download failed"
+    fi
+
+    echo ""
+    print_success "Qwen3-TTS setup complete"
+    print_info "Qwen3-TTS model (~200MB) will auto-download on first use"
+    print_info "Coqui TTS is installed as a stable fallback"
+
+    # Update .env with python path
+    if [ -f .env ]; then
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            sed -i '' "s|PYTHON_PATH=.*|PYTHON_PATH=$python_cmd|" .env
+        else
+            sed -i "s|PYTHON_PATH=.*|PYTHON_PATH=$python_cmd|" .env
+        fi
+        print_success "Updated .env with Python path"
     fi
 
     press_enter
@@ -841,15 +810,15 @@ setup_voice_complete() {
     fi
 
     echo ""
-    read -p "Download Piper voice? (Y/n): " dl_piper
-    if [[ ! "$dl_piper" =~ ^[Nn]$ ]]; then
-        download_piper_voice
+    read -p "Setup Qwen3-TTS? (Y/n): " dl_tts
+    if [[ ! "$dl_tts" =~ ^[Nn]$ ]]; then
+        setup_qwen3_tts
     fi
 
     echo ""
     print_success "Voice setup complete!"
     print_info "See VOICE_SETUP.md for detailed instructions on installing binaries"
-    print_info "Don't forget to set PORCUPINE_ACCESS_KEY in .env for wake word detection"
+    print_info "Don't forget to set PICOVOICE_ACCESS_KEY in .env for wake word detection"
     press_enter
 }
 
@@ -889,7 +858,7 @@ show_menu() {
     echo "   11)  Complete Voice Setup (Check + Download Models)"
     echo "   12)  Check Voice Binaries"
     echo "   13)  Download Whisper STT Model"
-    echo "   14)  Download Piper TTS Voice"
+    echo "   14)  Setup Qwen3-TTS (Text-to-Speech)"
     echo ""
     echo -e "${BOLD}  Run${NC}"
     echo "   15)  Start All Services (dev mode)"
@@ -947,7 +916,7 @@ main() {
                 echo "  check     Check prerequisites"
                 echo "  install   Install all dependencies"
                 echo "  build     Build all projects"
-                echo "  voice     Setup voice models (Whisper + Piper)"
+                echo "  voice     Setup voice models (Whisper + Qwen3-TTS)"
                 echo "  dev       Start all services in dev mode"
                 echo "  test      Run tests"
                 echo "  help      Show this help"
@@ -975,7 +944,7 @@ main() {
             11) setup_voice_complete ;;
             12) check_voice_binaries ;;
             13) download_whisper_model ;;
-            14) download_piper_voice ;;
+            14) setup_qwen3_tts ;;
             15) run_all_dev ;;
             16) run_backend ;;
             17) run_web ;;

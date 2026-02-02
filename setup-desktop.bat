@@ -241,7 +241,7 @@ echo 1. Make sure backend is running on your Linux server
 echo    (npm run dev in the main project directory)
 echo.
 echo 2. Update .env with:
-echo    - PORCUPINE_ACCESS_KEY (get from console.picovoice.ai)
+echo    - PICOVOICE_ACCESS_KEY (get from console.picovoice.ai)
 echo    - WHISPER_MODEL_PATH=./models/whisper/ggml-base.en.bin
 echo    - VOICE_ENABLED=true
 echo.
