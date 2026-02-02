@@ -201,6 +201,31 @@ if ($AnthropicKey) {
     }
 }
 
+# Twilio SMS configuration
+Write-Host ""
+Write-Host "  Twilio SMS Configuration (press Enter to skip all)" -ForegroundColor White
+Write-Host "  Get credentials at: https://console.twilio.com" -ForegroundColor Gray
+
+$twilioSid = Read-Host "  Twilio Account SID (or Enter to skip)"
+if ($twilioSid) {
+    $envContent = $envContent -replace 'TWILIO_ACCOUNT_SID=.*', "TWILIO_ACCOUNT_SID=$twilioSid"
+
+    $twilioToken = Read-Host "  Twilio Auth Token"
+    if ($twilioToken) {
+        $envContent = $envContent -replace 'TWILIO_AUTH_TOKEN=.*', "TWILIO_AUTH_TOKEN=$twilioToken"
+    }
+
+    $twilioPhone = Read-Host "  Twilio Phone Number (e.g. +15551234567)"
+    if ($twilioPhone) {
+        $envContent = $envContent -replace 'TWILIO_PHONE_NUMBER=.*', "TWILIO_PHONE_NUMBER=$twilioPhone"
+        $envContent = $envContent -replace 'FEATURE_SMS_ENABLED=.*', 'FEATURE_SMS_ENABLED=true'
+    }
+
+    Write-Ok "Twilio SMS configuration saved (SMS enabled)"
+} else {
+    Write-Step "Skipping Twilio - you can add it to .env later"
+}
+
 Set-Content ".env" $envContent -NoNewline
 Write-Ok "Environment configured with secure secrets"
 

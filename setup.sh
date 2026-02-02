@@ -231,9 +231,12 @@ setup_environment() {
         print_warning "Anthropic API key is required for AI functionality"
     fi
 
-    # Optional API keys
+    # Twilio SMS configuration
     echo ""
-    echo -e "${BOLD}Optional API Keys (press Enter to skip):${NC}"
+    echo -e "${BOLD}Twilio SMS Configuration (press Enter to skip all):${NC}"
+    print_info "Get credentials at: https://console.twilio.com"
+    print_info "You need: Account SID, Auth Token, and a Twilio phone number"
+    echo ""
 
     read -p "Twilio Account SID: " twilio_sid
     if [ -n "$twilio_sid" ]; then
@@ -242,22 +245,36 @@ setup_environment() {
         else
             sed -i "s/TWILIO_ACCOUNT_SID=.*/TWILIO_ACCOUNT_SID=$twilio_sid/" .env
         fi
-    fi
 
-    read -p "Twilio Auth Token: " -s twilio_token
-    echo ""
-    if [ -n "$twilio_token" ]; then
-        if [[ "$OSTYPE" == "darwin"* ]]; then
-            sed -i '' "s/TWILIO_AUTH_TOKEN=.*/TWILIO_AUTH_TOKEN=$twilio_token/" .env
-        else
-            sed -i "s/TWILIO_AUTH_TOKEN=.*/TWILIO_AUTH_TOKEN=$twilio_token/" .env
+        read -p "Twilio Auth Token: " -s twilio_token
+        echo ""
+        if [ -n "$twilio_token" ]; then
+            if [[ "$OSTYPE" == "darwin"* ]]; then
+                sed -i '' "s/TWILIO_AUTH_TOKEN=.*/TWILIO_AUTH_TOKEN=$twilio_token/" .env
+            else
+                sed -i "s/TWILIO_AUTH_TOKEN=.*/TWILIO_AUTH_TOKEN=$twilio_token/" .env
+            fi
         fi
-        print_success "Twilio credentials saved"
+
+        read -p "Twilio Phone Number (e.g. +15551234567): " twilio_phone
+        if [ -n "$twilio_phone" ]; then
+            if [[ "$OSTYPE" == "darwin"* ]]; then
+                sed -i '' "s/TWILIO_PHONE_NUMBER=.*/TWILIO_PHONE_NUMBER=$twilio_phone/" .env
+                sed -i '' "s/FEATURE_SMS_ENABLED=.*/FEATURE_SMS_ENABLED=true/" .env
+            else
+                sed -i "s/TWILIO_PHONE_NUMBER=.*/TWILIO_PHONE_NUMBER=$twilio_phone/" .env
+                sed -i "s/FEATURE_SMS_ENABLED=.*/FEATURE_SMS_ENABLED=true/" .env
+            fi
+        fi
+
+        print_success "Twilio SMS configuration saved (SMS enabled)"
+    else
+        print_info "Skipping Twilio - you can add it to .env later"
     fi
 
     echo ""
     print_success "Environment configuration complete!"
-    print_info "You can edit .env later to add more API keys (ElevenLabs, Porcupine, etc.)"
+    print_info "You can edit .env later to add voice keys (PICOVOICE_ACCESS_KEY, etc.)"
 
     if [ -z "$anthropic_key" ]; then
         echo ""
